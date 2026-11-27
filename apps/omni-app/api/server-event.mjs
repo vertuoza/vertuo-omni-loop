@@ -23355,6 +23355,76 @@ function idOf(value) {
   }
 }
 
+// apps/omni-app/src/missions/held.ts
+var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
+var HELD = /^held: PRD (\S+) (?:is blocked by|waits on|waits for) (.+)$/i;
+var sibling = (prd, seq) => parseProductPrdId(`${productPrdParts(prd).key}-${String(seq)}`);
+function siblingsIn(text20, prd) {
+  const { key } = productPrdParts(prd);
+  const named = [...text20.matchAll(/(?<![\w-])([a-z][a-z0-9-]*)-([1-9]\d{0,9})(?![\w-])/g)].flatMap((match) => match[1] === key ? [sibling(prd, Number(match[2]))] : []);
+  return [...new Set(named)].filter((one) => one !== prd);
+}
+function heldOnOf(log2, prd) {
+  const lines2 = log2.split("\n").map((line3) => line3.trim().replace(STAMP4, "").replaceAll("**", "").trim());
+  for (const line3 of lines2.reverse()) {
+    const match = HELD.exec(line3);
+    if (match?.[1]?.replace(/[.:,]$/, "") !== prd) continue;
+    return siblingsIn((match[2] ?? "").split(" \xB7 ")[0] ?? "", prd);
+  }
+  return [];
+}
+function endedOf(attempt3, log2, prd) {
+  if (endsOn(log2, "/omni:mega-pr-care", prd)) return { ...attempt3, outcome: "ready" };
+  const heldOn = heldOnOf(log2, prd);
+  const red = gateRedOf(log2, prd);
+  return { ...attempt3, ...heldOn.length === 0 ? {} : { heldOn }, ...red ? { gateRed: true } : {} };
+}
+var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
+function endsOn(log2, command, prd) {
+  const last = log2.split("\n").map((line3) => line3.trim()).filter((line3) => line3 !== "" && !HOOK_FAILED.test(line3)).at(-1) ?? "";
+  const words = last.replace(STAMP4, "").replaceAll("`", "").trim().split(/\s+/);
+  return words[0] === command && words[1] === prd;
+}
+var gateRedOf = (log2, prd) => endsOn(log2, "/omni:ultra-yolo-fix", prd);
+function specBlockersOf(spec, prd) {
+  const block = spec === null ? null : /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(spec);
+  if (block === null) return [];
+  const raw = parseFrontMatterLines(block[1] ?? "").data["blocked-by"];
+  const read2 = raw === void 0 ? null : SpecFrontMatterSchema.shape["blocked-by"].safeParse(raw);
+  if (read2?.success !== true || read2.data === "none") return [];
+  return [...new Set(read2.data.map((seq) => sibling(prd, seq)))].filter((one) => one !== prd);
+}
+function sentEarly(runs, events, { blockers, scope, done }) {
+  const at4 = (kind, match) => events.findIndex((event) => event.kind === kind && match(event));
+  const early = /* @__PURE__ */ new Set();
+  for (const one of runs) {
+    const sent = at4("dispatched", (event) => event.job === one.job);
+    if (sent < 0) continue;
+    const waits = [...blockers.get(one.prd) ?? [], ...one.attempts.at(-1)?.heldOn ?? []].filter((prd) => prd !== one.prd && scope.has(prd));
+    const joinedAt = (prd) => at4("prd-joined", (event) => (event.product ?? event.prd) === prd);
+    if (waits.some((prd) => done.has(prd) ? joinedAt(prd) > sent : true)) early.add(one.job);
+  }
+  return early;
+}
+var endedReady = (one) => {
+  const last = one.attempts.at(-1);
+  return last?.status === "done" && last.outcome === "ready";
+};
+function fromReady(runs) {
+  const first = /* @__PURE__ */ new Map();
+  for (const one of runs.filter(endedReady)) first.set(one.prd, Math.min(first.get(one.prd) ?? one.run, one.run));
+  return runs.filter((one) => one.run >= (first.get(one.prd) ?? Number.POSITIVE_INFINITY)).map((one) => one.job);
+}
+function heldBuildsOf(runs, events, at4) {
+  const early = sentEarly(runs, events, at4);
+  const named = runs.filter((one) => (one.attempts.at(-1)?.heldOn ?? []).length > 0).map((one) => one.job);
+  return { early, held: /* @__PURE__ */ new Set([...early, ...named, ...fromReady(runs)]) };
+}
+function withoutHeld(view, held2) {
+  if (held2.size === 0) return view;
+  return { ...view, rows: view.rows.filter((row) => !held2.has(row.failedJob)) };
+}
+
 // apps/omni-app/src/missions/supervisor.ts
 var OFFLINE_MS = 9e4;
 var FRESH_MS = 12e4;
@@ -24035,6 +24105,8 @@ function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = n
   const last = latest?.attempts.at(-1);
   if (latest !== null && last !== void 0) {
     if (endOf(last) === null) return { state: "running" };
+    const ready = own.find(endedReady);
+    if (ready !== void 0) return { state: "ready", run: ready };
     const counted3 = own.filter((one) => one === latest || !early.has(one.job) && one.attempts.at(-1)?.gateRed !== true);
     return heldBuild(fact, own, latest, last, { done, scope, early, landed }) ?? redGate(fact, own, latest, last, answers) ?? productEnded(fact, counted3, last, { resumes, repairs });
   }
@@ -24517,7 +24589,7 @@ function scrub(input) {
 // kit/lib/repair/line.ts
 var REPAIR_LINE = "omni repair: ";
 var REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
+var STAMP5 = /^\d{2}:\d{2}:\d{2} /;
 var RepairRecordSchema = z97.object({
   v: z97.literal(1),
   mission: z97.number().int().positive(),
@@ -24541,7 +24613,7 @@ function withOwnFingerprint(record) {
   };
 }
 function repairLine(log2) {
-  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP4, "")).findLast((line3) => line3.startsWith(REPAIR_LINE));
+  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP5, "")).findLast((line3) => line3.startsWith(REPAIR_LINE));
   if (last === void 0) return { readable: false, reason: "missing" };
   let json2;
   try {
@@ -25346,65 +25418,6 @@ async function stuckStep(at4) {
   }
   const events = unrecorded([...stuckEvents(view, { where: at4.where, mission: at4.mission.number }), ...pause], recordedKeys(timeline2));
   return { next, events, running: view.jobs.some((job) => !["done", "failed", "cancelled"].includes(job.attempts.at(-1)?.status ?? "")) };
-}
-
-// apps/omni-app/src/missions/held.ts
-var STAMP5 = /^\d{2}:\d{2}:\d{2} /;
-var HELD = /^held: PRD (\S+) (?:is blocked by|waits on|waits for) (.+)$/i;
-var sibling = (prd, seq) => parseProductPrdId(`${productPrdParts(prd).key}-${String(seq)}`);
-function siblingsIn(text20, prd) {
-  const { key } = productPrdParts(prd);
-  const named = [...text20.matchAll(/(?<![\w-])([a-z][a-z0-9-]*)-([1-9]\d{0,9})(?![\w-])/g)].flatMap((match) => match[1] === key ? [sibling(prd, Number(match[2]))] : []);
-  return [...new Set(named)].filter((one) => one !== prd);
-}
-function heldOnOf(log2, prd) {
-  const lines2 = log2.split("\n").map((line3) => line3.trim().replace(STAMP5, "").replaceAll("**", "").trim());
-  for (const line3 of lines2.reverse()) {
-    const match = HELD.exec(line3);
-    if (match?.[1]?.replace(/[.:,]$/, "") !== prd) continue;
-    return siblingsIn((match[2] ?? "").split(" \xB7 ")[0] ?? "", prd);
-  }
-  return [];
-}
-function endedOf(attempt3, log2, prd) {
-  const heldOn = heldOnOf(log2, prd);
-  const red = gateRedOf(log2, prd);
-  return { ...attempt3, ...heldOn.length === 0 ? {} : { heldOn }, ...red ? { gateRed: true } : {} };
-}
-var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
-function gateRedOf(log2, prd) {
-  const last = log2.split("\n").map((line3) => line3.trim()).filter((line3) => line3 !== "" && !HOOK_FAILED.test(line3)).at(-1) ?? "";
-  const words = last.replace(STAMP5, "").replaceAll("`", "").trim().split(/\s+/);
-  return words[0] === "/omni:ultra-yolo-fix" && words[1] === prd;
-}
-function specBlockersOf(spec, prd) {
-  const block = spec === null ? null : /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(spec);
-  if (block === null) return [];
-  const raw = parseFrontMatterLines(block[1] ?? "").data["blocked-by"];
-  const read2 = raw === void 0 ? null : SpecFrontMatterSchema.shape["blocked-by"].safeParse(raw);
-  if (read2?.success !== true || read2.data === "none") return [];
-  return [...new Set(read2.data.map((seq) => sibling(prd, seq)))].filter((one) => one !== prd);
-}
-function sentEarly(runs, events, { blockers, scope, done }) {
-  const at4 = (kind, match) => events.findIndex((event) => event.kind === kind && match(event));
-  const early = /* @__PURE__ */ new Set();
-  for (const one of runs) {
-    const sent = at4("dispatched", (event) => event.job === one.job);
-    if (sent < 0) continue;
-    const waits = [...blockers.get(one.prd) ?? [], ...one.attempts.at(-1)?.heldOn ?? []].filter((prd) => prd !== one.prd && scope.has(prd));
-    const joinedAt = (prd) => at4("prd-joined", (event) => (event.product ?? event.prd) === prd);
-    if (waits.some((prd) => done.has(prd) ? joinedAt(prd) > sent : true)) early.add(one.job);
-  }
-  return early;
-}
-function heldBuildsOf(runs, events, at4) {
-  const early = sentEarly(runs, events, at4);
-  const named = runs.filter((one) => (one.attempts.at(-1)?.heldOn ?? []).length > 0).map((one) => one.job);
-  return { early, held: /* @__PURE__ */ new Set([...early, ...named]) };
-}
-function withoutHeld(view, held2) {
-  if (held2.size === 0) return view;
-  return { ...view, rows: view.rows.filter((row) => !held2.has(row.failedJob)) };
 }
 
 // kit/lib/mission/retro.ts

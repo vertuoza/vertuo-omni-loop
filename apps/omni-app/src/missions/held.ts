@@ -5,11 +5,14 @@
 //                 stamp, bold and page link left out. Only PRDs of the same product, never the PRD itself
 //   gateRedOf     whether a build ended on its red gate (bug #3345): the hand-off's last line is `/omni:ultra-yolo-fix <id>`, which
 //                 /omni:ultra-yolo ends on when open items hold its gate. Its items wait for an answer: no failure, no stop mid-way
+//   endedOf       a build that ended ready (bug #3373): the hand-off's last line is `/omni:mega-pr-care <id>`, which /omni:ultra-yolo
+//                 ends on once its target PRs read ready; the runner gives an ultra-yolo job no result word, so it reads `ready` here
 //   specBlockersOf the PRDs a product PRD's spec says it is blocked by: its front matter's `blocked-by: [27, 28]` (the kit's own
 //                 field, kit/lib/schema/front-matter.ts), each a PRD of the same product
 //   heldBuildsOf  the builds sent before a PRD of the scope they wait on joined the mission branch (`early`): they built nothing it
 //                 holds, so none of their ends counts as a failure, a stop mid-way or a hold of the build itself; with them, every build
 //                 that ended on a held line (`held`)
+//                 and every build from its PRD's first ready end on (bug #3373)
 //   withoutHeld   the mission's repairs without the rows of those sent for a held build: none of the 3 per cause or the 9 per mission
 import { parseFrontMatterLines } from 'omni-loop/kit/lib/front-matter.ts';
 import { parseProductPrdId, productPrdParts, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
@@ -42,8 +45,12 @@ export function heldOnOf(log: string, prd: ProductPrdId): ProductPrdId[] {
   return [];
 }
 
-/** `attempt`, a build of `prd` that ended done with no result word, with what its log `log` says it ended on: held on PRDs, or its red gate. */
+/**
+ * `attempt`, a build of `prd` that ended done with no result word, with what its log `log` says it ended on: ready (bug #3373), held on
+ * PRDs, or its red gate.
+ */
 export function endedOf(attempt: Attempt, log: string, prd: ProductPrdId): Attempt {
+  if (endsOn(log, '/omni:mega-pr-care', prd)) return { ...attempt, outcome: 'ready' };
   const heldOn = heldOnOf(log, prd);
   const red = gateRedOf(log, prd);
   return { ...attempt, ...(heldOn.length === 0 ? {} : { heldOn }), ...(red ? { gateRed: true } : {}) };
@@ -52,12 +59,15 @@ export function endedOf(attempt: Attempt, log: string, prd: ProductPrdId): Attem
 /** The line claude prints when one of the session's hooks fails, which may come after the hand-off (kit/lib/runner/log.ts). */
 const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
 
-/** Whether build `prd`'s log ends on its red gate: its last line (stamp, backticks and a failed hook's line left out) `/omni:ultra-yolo-fix <prd>`. */
-export function gateRedOf(log: string, prd: ProductPrdId): boolean {
+/** Whether build `prd`'s log ends on `command <prd>`: its last line, stamp, backticks and a failed hook's line left out, its flags after. */
+function endsOn(log: string, command: string, prd: ProductPrdId): boolean {
   const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '';
   const words = last.replace(STAMP, '').replaceAll('`', '').trim().split(/\s+/);
-  return words[0] === '/omni:ultra-yolo-fix' && words[1] === prd;
+  return words[0] === command && words[1] === prd;
 }
+
+/** Whether build `prd`'s log ends on its red gate: its last line `/omni:ultra-yolo-fix <prd>`. */
+export const gateRedOf = (log: string, prd: ProductPrdId): boolean => endsOn(log, '/omni:ultra-yolo-fix', prd);
 
 /** The PRDs product PRD `prd`'s spec says it is blocked by (`blocked-by: [27, 28]`); none when the spec or its field does not read. */
 export function specBlockersOf(spec: string | null, prd: ProductPrdId): ProductPrdId[] {
@@ -93,11 +103,27 @@ function sentEarly(runs: readonly ProductRun[], events: readonly Event[], { bloc
   return early;
 }
 
-/** The builds of `runs` that were held (bug #3345): those sent early (`sentEarly`), and with them every build that ended on a held line. */
+/** Whether a build ended ready: done, its result word or its last line (`endedOf`) `ready`. */
+export const endedReady = (one: ProductRun): boolean => {
+  const last = one.attempts.at(-1);
+  return last?.status === 'done' && last.outcome === 'ready';
+};
+
+/** The jobs of `runs` sent from their PRD's first build that ended ready on (bug #3373), that build included: the PRD joins. */
+function fromReady(runs: readonly ProductRun[]): string[] {
+  const first = new Map<MissionPrd, number>();
+  for (const one of runs.filter(endedReady)) first.set(one.prd, Math.min(first.get(one.prd) ?? one.run, one.run));
+  return runs.filter((one) => one.run >= (first.get(one.prd) ?? Number.POSITIVE_INFINITY)).map((one) => one.job);
+}
+
+/**
+ * The builds of `runs` that were held (bug #3345): those sent early (`sentEarly`), and with them every build that ended on a held line.
+ * Bug #3373: with them too, every build from its PRD's first build that ended ready on, so the repairs sent for them count none.
+ */
 export function heldBuildsOf(runs: readonly ProductRun[], events: readonly Event[], at: EarlyAt): { early: Set<string>; held: Set<string> } {
   const early = sentEarly(runs, events, at);
   const named = runs.filter((one) => (one.attempts.at(-1)?.heldOn ?? []).length > 0).map((one) => one.job);
-  return { early, held: new Set([...early, ...named]) };
+  return { early, held: new Set([...early, ...named, ...fromReady(runs)]) };
 }
 
 /**

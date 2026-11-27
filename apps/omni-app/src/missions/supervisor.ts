@@ -63,6 +63,7 @@ import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import { endedHalfway, halfwayEvent, resumeOf, resumeStep, resumeWords } from './resume.ts';
 import { approvalNext, approveLine, verdictWords, type Committee } from './committee.ts';
 import { answerEvents, answersNext, itemsOpen, type ItemCommittee, type OpenAt } from './answers.ts';
+import { endedReady } from './held.ts';
 import { NO_REPAIRS, ofRepository, repairEvents, repairingWords, repairNext, type RepairView, type SentAfter } from './repair.ts';
 import type { QaPosted } from 'omni-loop/kit/lib/qa/verdict.ts';
 import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
@@ -1481,6 +1482,9 @@ export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], {
   const last = latest?.attempts.at(-1);
   if (latest !== null && last !== undefined) {
     if (endOf(last) === null) return { state: 'running' };
+    // Bug #3373: a build that ended ready joins, whatever the builds sent after it ended on.
+    const ready = own.find(endedReady);
+    if (ready !== undefined) return { state: 'ready', run: ready };
     // A build sent early, or one that ended on its red gate, is no failure and no stop mid-way: its end counts none.
     const counted = own.filter((one) => one === latest || (!early.has(one.job) && one.attempts.at(-1)?.gateRed !== true));
     return heldBuild(fact, own, latest, last, { done, scope, early, landed }) ?? redGate(fact, own, latest, last, answers) ?? productEnded(fact, counted, last, { resumes, repairs });
