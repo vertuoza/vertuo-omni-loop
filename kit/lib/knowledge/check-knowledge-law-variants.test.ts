@@ -50,7 +50,7 @@ const example = () => ({
       audiences: { INTERNAL: 'on', BETA: 'off', GENERAL: 'off', FINAL: 'off', 'new-tenants': 'on' } as Record<string, string>,
       laws: ['BL-PLANNINGANDTIMETRACKING-1', 'BL-PLANNINGANDTIMETRACKING-6'],
       legal: [] as string[],
-      checked: { how: 'live', on: '2026-11-27' as string | null, release: 'v3.15.9', note: null } as Record<string, unknown>,
+      checked: { how: 'live', on: '2026-11-27', release: 'v3.15.9', note: null } as Record<string, unknown>,
     },
   ],
 });
@@ -71,12 +71,12 @@ describe('omni check knowledge — law variants, offline (PRD 3375)', () => {
   const PLANNING = 'docs/knowledge/domains/planning-and-time-tracking/business-laws.md';
   const PRODUCT_LAYERS = Object.fromEntries(['principles.md', 'rules.md', 'invariants.md'].map((name) => [`docs/knowledge/product/${name}`, '# Product\n']));
 
-  /** The violations of a knowledge folder holding the laws and, unless `null`, `variants` as the file's text. */
-  function grade(variants: unknown, { raw = false, now = TODAY }: { raw?: boolean; now?: Date } = {}): string[] {
+  /** The violations of a knowledge folder holding the laws and, unless `null`, `variants` as the file (a string as its very text). */
+  function grade(variants: unknown, now: Date = TODAY): string[] {
     const root = mkdtempSync(join(tmpdir(), 'check-law-variants-'));
     roots.push(root);
     const files: Record<string, string> = { ...PRODUCT_LAYERS, [PLANNING]: LAWS };
-    if (variants !== null) files[VARIANTS] = raw ? String(variants) : JSON.stringify(variants, null, 2);
+    if (variants !== null) files[VARIANTS] = typeof variants === 'string' ? variants : JSON.stringify(variants, null, 2);
     for (const [path, text] of Object.entries(files)) {
       mkdirSync(join(root, path, '..'), { recursive: true });
       writeFileSync(join(root, path), text);
@@ -110,7 +110,7 @@ describe('omni check knowledge — law variants, offline (PRD 3375)', () => {
   });
 
   it('refuses JSON that does not parse, naming the file', () => {
-    expect(grade('{ "version": 1,', { raw: true })).toEqual([expect.stringMatching(new RegExp(`^${VARIANTS}: does not parse as JSON: `))]);
+    expect(grade('{ "version": 1,')).toEqual([expect.stringMatching(new RegExp(`^${VARIANTS}: does not parse as JSON: `))]);
   });
 });
 

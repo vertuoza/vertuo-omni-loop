@@ -119,16 +119,10 @@ function tooSmall({ origin, minimum }: { origin: string; minimum: number | bigin
 
 /** Plain words for what one schema issue finds wrong at its path. */
 function whyOf(issue: z.core.$ZodIssue): string {
-  switch (issue.code) {
-    case 'invalid_type':
-      return issue.input === undefined ? 'is missing' : `must be ${KIND_WORDS[issue.expected] ?? issue.expected}`;
-    case 'too_small':
-      return tooSmall(issue);
-    case 'invalid_value':
-      return `must be ${choices(issue.values)}`;
-    default:
-      return issue.message;
-  }
+  if (issue.code === 'invalid_type') return issue.input === undefined ? 'is missing' : `must be ${KIND_WORDS[issue.expected] ?? issue.expected}`;
+  if (issue.code === 'too_small') return tooSmall(issue);
+  if (issue.code === 'invalid_value') return `must be ${choices(issue.values)}`;
+  return issue.message;
 }
 
 /** One schema issue as problems: an unknown key is one problem per key. */
