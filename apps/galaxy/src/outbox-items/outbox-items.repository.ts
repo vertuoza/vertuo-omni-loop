@@ -6,7 +6,7 @@
 // message and hint; an answer out of shape as the code `shape`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import type { WorkSliceId } from 'omni-loop/kit/lib/ids.ts';
+import type { ProductPrdId, WorkSliceId } from 'omni-loop/kit/lib/ids.ts';
 import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 /** What the reads and writes need: the tables, and the database's functions. */
@@ -69,6 +69,32 @@ export function outboxItemsRepository(db: OutboxItemsDb) {
     /** Every item of the dossier, oldest first, with its settlement. */
     items: (dossier: string): Promise<Stored<StoredItemRow[]>> =>
       parsed(db.from('outbox_items').select(ITEM_COLUMNS).eq('dossier_id', dossier).order('raised_at').order('item'), z.array(StoredItem), 'outbox_items'),
+
+    /**
+     * Bug #3363: the items of product PRD `prd` (dossier `dossier`) a fleet's committee carried or deferred for a mission of the
+     * dossier's workspace whose branch is `branch` (BR-PRODUCT-145: answered for that mission branch only), each once.
+     */
+    fleetAnswered: async ({ dossier, prd, branch }: { dossier: string; prd: ProductPrdId; branch: string }): Promise<Stored<string[]>> => {
+      const held = await parsed(db.from('dossiers').select('workspace_id').eq('id', dossier), z.array(z.object({ workspace_id: z.string() })), 'dossiers');
+      if (!held.ok) return held;
+      const workspace = held.value[0]?.workspace_id;
+      if (workspace === undefined) return { ok: true, value: [] };
+      const missions = await parsed(
+        db.from('mission_branches').select('mission_id, missions!inner(workspace_id)').eq('branch', branch).eq('missions.workspace_id', workspace),
+        z.array(z.object({ mission_id: z.string() })),
+        'mission_branches',
+      );
+      if (!missions.ok) return missions;
+      const ids = [...new Set(missions.value.map((one) => one.mission_id))];
+      if (ids.length === 0) return { ok: true, value: [] };
+      const decided = await parsed(
+        db.from('mission_decisions').select('item').in('mission_id', ids).eq('kind', 'answer').eq('product_prd', prd).in('outcome', ['carried', 'deferred']),
+        z.array(z.object({ item: z.string().nullable() })),
+        'mission_decisions',
+      );
+      if (!decided.ok) return decided;
+      return { ok: true, value: [...new Set(decided.value.flatMap((one) => (one.item === null ? [] : [one.item])))] };
+    },
 
     /** Raises the item, or rewrites it while it is open. */
     put: (prd: PrdOnProduct, columns: ItemColumns): Promise<Stored<unknown>> =>

@@ -16,26 +16,34 @@
 // job's log (kit/lib/committee/record.ts); an answer's names the item and option A, what was built. A votes file it refuses
 // prints why on stderr, exit 1, and no record.
 //
-// Neither touches the network: the App records the decision, as the service, from the job's log (BR-PRODUCT-94), and settles
-// a carried answer in the PRD's ledger itself.
+// Neither touches the network for a repository PRD: the App records the decision, as the service, from the job's log
+// (BR-PRODUCT-94), and settles a carried answer in the PRD's ledger itself.
+//
+// Bug #3363: `--item` also takes a product PRD, `omni committee check|record <key>-<n> --item <id>`, its item read from the
+// Omni page as `omni answers ask <key>-<n>` reads it (open there, by its hash), the escalation list read from it the same way.
+// The App records the decision for the mission branch only (BR-PRODUCT-145): the item stays open on the page for a person.
+// A product PRD is never approved here: its approval is its page's.
+import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { bearsOn, decide, escalations, itemFacts, rewritesData, type CommitteeFacts } from '../../lib/committee/escalation.ts';
 import { committeeLine, type CommitteeRecord } from '../../lib/committee/record.ts';
 import { CommitteeRoleSchema, parseVotes, sitting, type CommitteeRole } from '../../lib/committee/vote.ts';
 import { readDossierFolder, sha256 } from '../../lib/dossier/folder.ts';
 import { readRepoFile } from '../../lib/check-report.ts';
-import { parseOutboxItemId, type PrdNumber } from '../../lib/ids.ts';
+import { isProductPrdId, parseOutboxItemId, type PrdNumber, type ProductPrdId } from '../../lib/ids.ts';
 import { lockedLaws } from '../../lib/laws.ts';
 import { openItems } from '../../lib/outbox/status.ts';
 import { parseItem } from '../../lib/outbox/settle.ts';
+import { serverFailure } from '../../lib/outbox/server-store.ts';
+import { outboxStore, type OutboxSignIn } from '../../lib/outbox/stores.ts';
 import { roleOf } from '../../lib/virtual-fleet/roles.ts';
-import { parseArgs, prdArg, println, readUserFile, usageError } from '../args.ts';
-import type { Command, CommandIo, Exec } from '../io.ts';
-import { synchronous } from '../synchronous.ts';
+import { parseArgs, prdIdArg, println, readUserFile, usageError } from '../args.ts';
+import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 
 const USAGE =
   'usage: omni committee check <prd> --approve|--item <id> [--bound <0-1>] [--author <role>] [--json]\n' +
-  '       omni committee record <prd> --approve|--item <id> --file <votes.json> [--bound <0-1>] [--author <role>]';
+  '       omni committee record <prd> --approve|--item <id> --file <votes.json> [--bound <0-1>] [--author <role>]\n' +
+  '       omni committee check|record <key>-<n> --item <id> … (a product PRD\'s item, read from the Omni page)';
 
 const FLAGS = { values: ['author', 'file', 'item', 'bound'] as const, booleans: ['approve', 'json'] as const };
 
@@ -49,7 +57,10 @@ const BUILT = 'A';
 type ReadFile = { kind: string; path: string; sha256: string };
 
 /** What the committee reads of PRD `prd`: its files, the list's facts, who sits, and the item it answers (null for an approval). */
-type Read = { prd: PrdNumber; files: ReadFile[]; facts: CommitteeFacts; author: CommitteeRole | null; item: string | null };
+type Read = { prd: PrdNumber | ProductPrdId; files: ReadFile[]; facts: CommitteeFacts; author: CommitteeRole | null; item: string | null };
+
+/** What a verb of `omni committee` runs on: the repository's context, and the sign-in a product PRD's item is read with. */
+type CommitteeIo = { ctx: Context; stdout: Out; stderr: Out; exec: Exec; signIn: OutboxSignIn };
 
 const PHASE0_SERVER = /^---\r?\n[\s\S]*?^phase0:[ \t]*["']?server["']?[ \t]*\r?$[\s\S]*?^---/m;
 
@@ -95,13 +106,19 @@ function boundOf(flag: string | undefined): number {
 }
 
 /** What the committee reads before any member runs; a usage error when the arguments do not read, or what it reads is not here. */
-function readFacts(args: string[], { ctx, exec }: CommandIo): Read & { json: boolean; file: string | undefined } {
+async function readFacts(args: string[], { ctx, exec, signIn }: CommitteeIo): Promise<Read & { json: boolean; file: string | undefined }> {
   const { positional, flags } = parseArgs('committee', args, FLAGS);
   if (positional.length !== 1 || (flags.approve === true) === (flags.item !== undefined)) throw usageError(USAGE);
-  const prd = prdArg('committee', '<prd>', positional[0]);
+  const prd = prdIdArg('committee', '<prd>', positional[0]);
   const author = authorOf(flags.author);
-  const read = flags.item === undefined ? approvalOf(prd, ctx, exec) : answerOf(prd, flags.item, boundOf(flags.bound), ctx, exec);
-  return { ...read, author, json: flags.json === true, file: flags.file };
+  const bound = boundOf(flags.bound);
+  const json = flags.json === true;
+  if (isProductPrdId(prd)) {
+    if (flags.item === undefined) throw usageError(`omni committee: PRD ${prd} is approved on its page: the committee answers its items only (--item <id>).`);
+    return { ...(await productAnswerOf(prd, flags.item, bound, ctx, signIn)), author, json, file: flags.file };
+  }
+  const read = flags.item === undefined ? approvalOf(prd, ctx, exec) : answerOf(prd, flags.item, bound, ctx, exec);
+  return { ...read, author, json, file: flags.file };
 }
 
 /** An approval's files and facts: the PRD's folder, its locked laws and Legal entries, its phase 0, its branch's migrations. */
@@ -132,9 +149,23 @@ function answerOf(prd: PrdNumber, item: string, bound: number, ctx: Context, exe
   return { prd, files: [{ kind: 'item', path: open.file, sha256: sha256(text) }], facts, item };
 }
 
+/**
+ * A product PRD's answer (bug #3363): its item open on the Omni page, read as `omni answers ask <key>-<n>` reads it, by its hash,
+ * and the list read from it. No migration of this checkout's branch is its: a product PRD's build is in its target repositories.
+ */
+async function productAnswerOf(prd: ProductPrdId, item: string, bound: number, ctx: Context, signIn: OutboxSignIn): Promise<Omit<Read, 'author'>> {
+  const ref = `${prd}/${item}`;
+  const read = await outboxStore(ctx, prd, signIn).readItem(ref);
+  if (!read.ok) throw usageError(`omni committee: PRD ${prd} has no open item ${item} on its page.`);
+  const parsed = parseItem(read.text, ref);
+  const rank = parsed.ok ? parsed.item.rank : 'unread';
+  const facts = itemFacts({ text: read.text, rank, locked: lockedLaws(ctx).map((law) => law.id), bound, dataMigrations: [] });
+  return { prd, files: [{ kind: 'item', path: ref, sha256: sha256(read.text) }], facts, item };
+}
+
 /** `omni committee check`: the files, who sits, and what the list escalates. */
-function check(args: string[], io: CommandIo): number {
-  const { prd, files, facts, author, json, item } = readFacts(args, io);
+async function check(args: string[], io: CommitteeIo): Promise<number> {
+  const { prd, files, facts, author, json, item } = await readFacts(args, io);
   const why = escalations(facts);
   const seats = sitting(author).map((role) => ({ role, agent: roleOf(role).agent, model: roleOf(role).model }));
   if (json) {
@@ -154,8 +185,8 @@ const carriedWords = (item: string | null): string =>
   item === null ? 'carried: the fleet approves it once the App records it' : `carried: the fleet answers ${item} with option ${BUILT} once the App records it`;
 
 /** `omni committee record`: the decision on the votes in `--file`, then its record line, last. */
-function record(args: string[], io: CommandIo): number {
-  const { prd, files, facts, author, file, item } = readFacts(args, io);
+async function record(args: string[], io: CommitteeIo): Promise<number> {
+  const { prd, files, facts, author, file, item } = await readFacts(args, io);
   if (file === undefined) throw usageError(USAGE);
   let input: unknown;
   try {
@@ -180,18 +211,25 @@ function record(args: string[], io: CommandIo): number {
     verdicts: decided.verdicts,
     outcome: decided.outcome,
   };
-  const line: CommitteeRecord = item === null ? { ...common, kind: 'approve' } : { ...common, kind: 'answer', item: parseOutboxItemId(item), option: BUILT };
+  const line: CommitteeRecord = item === null ? { ...common, prd: approvedPrd(prd), kind: 'approve' } : { ...common, kind: 'answer', item: parseOutboxItemId(item), option: BUILT };
   println(io.stdout, `omni committee: PRD ${String(prd)} ${decided.outcome === 'carried' ? carriedWords(item) : 'escalated: it goes to a person'}`);
   for (const why of decided.why) println(io.stdout, `  ${why}`);
   println(io.stdout, committeeLine(line));
   return 0;
 }
 
-export const committee: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
+/** The PRD an approval names: a repository PRD's number, since a product PRD is approved on its page ({@link readFacts}). */
+function approvedPrd(prd: PrdNumber | ProductPrdId): PrdNumber {
+  if (isProductPrdId(prd)) throw usageError(`omni committee: PRD ${prd} is approved on its page.`);
+  return prd;
+}
+
+export const committee = {
+  withoutContext: true,
+  async run(args: string[], { cwd, stdout, stderr, exec, ...signIn }: FreeIo & OutboxSignIn): Promise<number> {
     const [which = '', ...rest] = args;
-    if (which === 'check') return check(rest, io);
-    if (which === 'record') return record(rest, io);
-    throw usageError(USAGE);
-  }),
-};
+    if (which !== 'check' && which !== 'record') throw usageError(USAGE);
+    const io: CommitteeIo = { ctx: loadContext(cwd, { exec }), stdout, stderr, exec, signIn };
+    return (which === 'check' ? check(rest, io) : record(rest, io)).catch((error: unknown) => serverFailure('committee', error, stderr));
+  },
+} satisfies FreeCommand;

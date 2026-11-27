@@ -36,8 +36,6 @@ const HEARTBEAT_MS = 60_000;
 const SEAT_POLL_MS = 60_000;
 /** How many times an owner's message is given to a think before it is left for the page. */
 const TRIES = 2;
-/** How many finding threads one look reads. */
-const THREADS = 20;
 /** How far back a look reads the threads for messages waiting for an answer. */
 const WAITING_MS = 24 * 3600_000;
 const BACKOFF = { firstMs: 5000, maxMs: 60_000 };
@@ -102,7 +100,8 @@ async function rememberBaselines(seat: Seat, snapshot: SeatSnapshot): Promise<vo
 /** The owners' messages of the general thread and the open findings' that no answer replies to yet, tried less than twice. */
 async function waitingMessages(seat: Seat, snapshot: SeatSnapshot): Promise<SeatMessage[]> {
   const after = new Date(Date.parse(snapshot.at) - WAITING_MS).toISOString();
-  const threads = [null, ...snapshot.findings.filter((finding) => finding.state === 'open').slice(0, THREADS).map((finding) => finding.id)];
+  // Every open finding's thread, the oldest included: a message in any of them waits for an answer (#3337).
+  const threads = [null, ...snapshot.findings.filter((finding) => finding.state === 'open').map((finding) => finding.id)];
   const waiting: SeatMessage[] = [];
   for (const thread of threads) {
     const messages = await seat.api.messages(seat.runner, thread, after);

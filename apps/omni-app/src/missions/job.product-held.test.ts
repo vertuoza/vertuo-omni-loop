@@ -27,14 +27,14 @@ const P31 = parseProductPrdId('omni-loop-31');
 const BRANCH = 'mission/19-settings';
 const HEAD = 'b'.repeat(40);
 
-const record = (prds: ProductPrdId[]): MissionRecord => ({
+const record = (prds: ProductPrdId[], level: MissionRecord['level'] = 'alone'): MissionRecord => ({
   id: ID,
   workspace: 'ws-1',
   repo: 'demo-org/widgets',
   fleet: 'night-shift',
   number: parseIssue(19),
   title: 'Settings',
-  level: 'alone',
+  level,
   status: 'running',
   waitingOn: null,
   parallel: prds.length,
@@ -102,7 +102,7 @@ const DONE_NO_WORD = { status: 'done', outcome: null } as const;
 type Fake = ReturnType<typeof fakeMissionStore>;
 
 /** Mission #3319's shape: omni-loop-28, 30 and 31 of a plain list (or `prds`), their builds' run 1 sent at once. */
-async function sentAtOnce(prds: ProductPrdId[] = [P28, P30, P31]) {
+async function sentAtOnce(prds: ProductPrdId[] = [P28, P30, P31], level: MissionRecord['level'] = 'alone') {
   const merged = new Set<string>();
   const targets: Record<string, TargetPull[]> = Object.fromEntries(prds.map((prd) => [prd, [{ repo: 'demo-org/widgets', pr: parsePr(Number(prd.slice(-2))) }]]));
   const joins: MissionJoins = {
@@ -113,7 +113,7 @@ async function sentAtOnce(prds: ProductPrdId[] = [P28, P30, P31]) {
     },
     targets: ({ prd }) => Promise.resolve(targets[prd] ?? []),
   };
-  const fake = fakeMissionStore({ mission: record(prds), facts: [], products: prds.map(product) });
+  const fake = fakeMissionStore({ mission: record(prds, level), facts: [], products: prds.map(product) });
   const run = () => missionHandler({ store: fake.store, branches, joins, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
   await run();
   const builds = () => fake.productJobs().map(({ key }) => key);
@@ -243,8 +243,9 @@ describe('a product build held on another PRD waits for it (bug #3345)', () => {
 
   // Mission #3319 at 12:54 UTC: omni-loop-28's build built its 4 slices, and its gate ended red on one open high item. Its last line,
   // `/omni:ultra-yolo-fix omni-loop-28`, was read as a build that ended without its result, and run 2 of the same build was sent.
+  // Below `alone` a person answers it; at `alone` the fleet's committee does (bug #3363, ./job.product-committee.test.ts).
   it('a build that ended on its red gate waits for its open items, sends nothing again and spends no repair, then builds again once they are answered', async () => {
-    const { fake, run, builds } = await sentAtOnce();
+    const { fake, run, builds } = await sentAtOnce([P28, P30, P31], 'own-branch');
     const item = 's1-02-parts-live-in-omni-ui';
     fake.setProduct(P28, { items: { ranks: ['high'], open: [{ id: item, rank: 'high' }] } });
     const red = ['12:54:02 **Red gate:** 1 open item waits on omni-loop › Questions: parts live in @omni/ui as built (A), or @omni/design.', '12:54:02 ', '12:54:02 /omni:ultra-yolo-fix omni-loop-28'].join('\n');
