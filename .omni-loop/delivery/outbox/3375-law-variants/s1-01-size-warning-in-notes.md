@@ -34,6 +34,8 @@ C. Drop the warning and rely on the pack leaving the file out to be noticed on t
 
 Whether the size warning of the law variants file stays among the check's notes on standard output, or moves to the warnings the check prints on standard error beside its wishes.
 
+Decided by: Jev (hardToRevert 0.44) · agent said false
+
 ## What I did meanwhile
 
 A file over 512 KiB prints `warning: <file>: <n> KiB — over 512 KiB: a pack leaves out a file over 1 MiB, and the Omni page would not see it.` among the notes of `omni check knowledge`, and the check still passes.
