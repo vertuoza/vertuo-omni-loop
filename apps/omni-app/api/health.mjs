@@ -214,7 +214,8 @@ var SCHEDULES = Object.freeze([
   { kind: "search-eval-promote", periodMinutes: 1440, maxTries: 3 },
   { kind: "search-eval-run", periodMinutes: 1440, maxTries: 3 },
   { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 },
-  { kind: "commander-notebook", periodMinutes: 1440, maxTries: 3 }
+  { kind: "commander-notebook", periodMinutes: 1440, maxTries: 3 },
+  { kind: "runner-jobs-expire", periodMinutes: 15, maxTries: 3 }
 ]);
 var SUPERVISOR_WATCH = Object.freeze({ kind: "supervisor-watch", periodMinutes: 2, maxTries: 2 });
 var LANED_SCHEDULES = Object.freeze([SUPERVISOR_WATCH]);

@@ -41,7 +41,7 @@ import type { OutboxPrd, OutboxStore } from './store.ts';
 
 /** The calls of the Omni page the store makes, as `askClient` (`../ask/client.ts`) makes them. */
 export type OutboxServerClient = {
-  readOutboxItems(query: { key: string; seq: number; repo: string | null }): Promise<unknown>;
+  readOutboxItems(query: { key: string; seq: number; repo: string | null; into?: string | null }): Promise<unknown>;
   putOutboxItem(item: { key: string; seq: number; repo: string | null; body: string; adopt: boolean }): Promise<unknown>;
   settleOutboxItem(answer: { key: string; seq: number; repo: string | null; item: string; verdict: string; basis: string; answer: string }): Promise<unknown>;
 };
@@ -75,6 +75,8 @@ const RowSchema = z.object({
   rank: z.enum(RANK_VALUES),
   body: z.string(),
   settlement: SettlementSchema.nullable(),
+  /** Bug #3363: read `into` a mission branch, the fleet's committee answered it for that branch; absent otherwise, and from an older page. */
+  fleet: z.boolean().optional(),
 });
 type Row = z.infer<typeof RowSchema>;
 
@@ -134,10 +136,10 @@ export function serverOutboxStore({ ctx, connect, now }: { ctx: Context; connect
     }
   }
 
-  /** Every row of PRD `prd`, open or settled. */
-  async function rows(prd: ProductPrdId): Promise<Row[]> {
+  /** Every row of PRD `prd`, open or settled; read `into` a mission branch, each the fleet answered for it says so (bug #3363). */
+  async function rows(prd: ProductPrdId, into: string | null = null): Promise<Row[]> {
     const { key, seq } = productPrdParts(prd);
-    const reply = ItemsReplySchema.safeParse(await ask((client) => client.readOutboxItems({ key, seq, repo })));
+    const reply = ItemsReplySchema.safeParse(await ask((client) => client.readOutboxItems({ key, seq, repo, ...(into === null ? {} : { into }) })));
     if (!reply.success) throw new OutboxServerError('the Omni page answered the outbox items out of shape', 200);
     return reply.data.items;
   }
@@ -249,9 +251,12 @@ export function serverOutboxStore({ ctx, connect, now }: { ctx: Context; connect
       return { moved, refused };
     },
 
-    async gate(prd, { labels = [] }) {
+    async gate(prd, { labels = [], into = null }) {
       const product = productPrd(prd);
-      const items = (await openRows(product)).map((row): OpenItem => {
+      // Bug #3363, BR-PRODUCT-145: into a mission branch, a high item its fleet answered counts as answered there; a
+      // human-action item never does. It stays open on the page for a person, and any other gate holds it.
+      const open = (await rows(product, into)).filter((row) => row.settlement === null && !(into !== null && row.fleet === true && row.rank === 'high'));
+      const items = open.map((row): OpenItem => {
         const file = refOf(product, row.item);
         return parsedRow(product, row) === null ? { file, id: null, rank: null } : { file, id: row.item, rank: row.rank };
       });

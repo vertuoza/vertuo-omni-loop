@@ -543,7 +543,7 @@ describe('the kit\'s answers', () => {
 // report never says it, so a job cannot read Need human with nothing to answer.
 describe('the outcome human (PRD 2255)', () => {
   it('is one of the outcomes a job reads', () => {
-    expect([...JOB_OUTCOMES]).toEqual(['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes']);
+    expect([...JOB_OUTCOMES]).toEqual(['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes', 'expired']);
     const job = { id: '00000000-0000-4000-8000-000001830201', line: '/omni:bug-fix 314', repo: 'acme/widgets', toRunner: null, toFleet: null, sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: null, status: 'done', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: 0, reason: null, outcome: 'human', queuedAt: 't', claimedAt: null, runningAt: null, endedAt: 't' };
     expect(JobReplySchema.parse({ job }).job.outcome).toBe('human');
   });

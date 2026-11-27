@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseWorkSliceId } from 'omni-loop/kit/lib/ids.ts';
+import { parseProductPrdId, parseWorkSliceId } from 'omni-loop/kit/lib/ids.ts';
 import { outboxItemsRepository, type OutboxItemsDb } from './outbox-items.repository';
 
 // A product PRD's outbox storage (PRD 1548 s7): the reads and RPCs it sends, as the signed-in person, each
@@ -63,6 +63,34 @@ describe('the items', () => {
   it('answered out of shape are refused by the code `shape`', async () => {
     expect(await outboxItemsRepository(fakeDb([{ data: [{ item: 1 }], error: null }]).db).items(DOSSIER))
       .toEqual({ ok: false, code: 'shape', message: 'outbox_items answered out of shape', hint: null });
+  });
+});
+
+describe('the items a fleet answered for a mission branch (bug #3363)', () => {
+  const BRANCH = 'mission/19-settings';
+  const WS = '22222222-2222-4222-8222-222222222222';
+  const M1 = '33333333-3333-4333-8333-333333333333';
+
+  it('are read from the carried and deferred answers of the missions of the dossier\'s workspace whose branch that is, each once', async () => {
+    const { db, lines } = fakeDb([
+      { data: [{ workspace_id: WS }], error: null },
+      { data: [{ mission_id: M1, missions: { workspace_id: WS } }], error: null },
+      { data: [{ item: 's1-02-parts-live-in-omni-ui' }, { item: 's1-02-parts-live-in-omni-ui' }, { item: null }], error: null },
+    ]);
+    expect(await outboxItemsRepository(db).fleetAnswered({ dossier: DOSSIER, prd: parseProductPrdId('omni-loop-28'), branch: BRANCH })).toEqual({ ok: true, value: ['s1-02-parts-live-in-omni-ui'] });
+    expect(lines).toEqual([
+      `from("dossiers").select("workspace_id").eq("id","${DOSSIER}")`,
+      `from("mission_branches").select("mission_id, missions!inner(workspace_id)").eq("branch","${BRANCH}").eq("missions.workspace_id","${WS}")`,
+      `from("mission_decisions").select("item").in("mission_id",["${M1}"]).eq("kind","answer").eq("product_prd","omni-loop-28").in("outcome",["carried","deferred"])`,
+    ]);
+  });
+
+  it('are none when no mission of the workspace has that branch, asking nothing more, and the database\'s refusal otherwise', async () => {
+    const none = fakeDb([{ data: [{ workspace_id: WS }], error: null }, { data: [], error: null }]);
+    expect(await outboxItemsRepository(none.db).fleetAnswered({ dossier: DOSSIER, prd: parseProductPrdId('omni-loop-28'), branch: BRANCH })).toEqual({ ok: true, value: [] });
+    expect(none.lines).toHaveLength(2);
+    expect(await outboxItemsRepository(fakeDb([{ data: [], error: null }]).db).fleetAnswered({ dossier: DOSSIER, prd: parseProductPrdId('omni-loop-28'), branch: BRANCH })).toEqual({ ok: true, value: [] });
+    expect((await outboxItemsRepository(fakeDb([{ data: null, error: { code: 'XX000', message: 'down' } }]).db).fleetAnswered({ dossier: DOSSIER, prd: parseProductPrdId('omni-loop-28'), branch: BRANCH })).ok).toBe(false);
   });
 });
 

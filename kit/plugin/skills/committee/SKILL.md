@@ -1,6 +1,6 @@
 ---
 name: committee
-description: The fleet's committee, at a mission's level `alone` — decides whether PRD n, waiting for approval on its page, is approved by the fleet instead of a person (--approve), or whether one of its high outbox items is answered by the fleet with option A, as built, instead of a person (--item <id>). Reads the escalation list by code first with omni committee check (a human-action item; a locked law, a Legal entry, a business law an item bears on; an item's hard-to-revert score unknown or at the mission's bound; a migration that drops or rewrites data) — each case on it goes to the members, then to a person at landing, never to a person mid-mission, but a PRD approved by its phase-0 PR, which only a person merges. The PM, the Architect and the Reviewer, each as its own agent and model, read the PRD's files or the item with no other member's verdict in front of them and answer yes, no or unsure in one sentence; the hero whose job wrote the PRD or raised the item sits out. Every sitting yes carries it (on the escalation list, when it was on it); any no or unsure defers an item with option A, the most reversible, and sends a PRD to a person. Records the decision with omni committee record, whose last line the App reads back to approve the PRD or settle the item in the fleet's name, the carried and deferred ones left open for the person on the mission pull request. Never approves on the page, never settles an item itself, never merges, asks nothing, writes no file of the repository. A mission sends it on a runner. Triggers on "the committee approves PRD 2896", "/omni:committee 2896 --approve", "/omni:committee 2896 --item s3-01-keep-the-cap".
+description: The fleet's committee, at a mission's level `alone` — decides whether PRD n, waiting for approval on its page, is approved by the fleet instead of a person (--approve), or whether one of its high outbox items is answered by the fleet with option A, as built, instead of a person (--item <id>). Reads the escalation list by code first with omni committee check (a human-action item; a locked law, a Legal entry, a business law an item bears on; an item's hard-to-revert score unknown or at the mission's bound; a migration that drops or rewrites data) — each case on it goes to the members, then to a person at landing, never to a person mid-mission, but a PRD approved by its phase-0 PR, which only a person merges. The PM, the Architect and the Reviewer, each as its own agent and model, read the PRD's files or the item with no other member's verdict in front of them and answer yes, no or unsure in one sentence; the hero whose job wrote the PRD or raised the item sits out. Every sitting yes carries it (on the escalation list, when it was on it); any no or unsure defers an item with option A, the most reversible, and sends a PRD to a person. Records the decision with omni committee record, whose last line the App reads back to approve the PRD or settle the item in the fleet's name, the carried and deferred ones left open for the person on the mission pull request. Never approves on the page, never settles an item itself, never merges, asks nothing, writes no file of the repository. A mission sends it on a runner. A product PRD's item, `<key>-<n> --item <id>`, is read from the Omni page and answered for the mission branch only. Triggers on "the committee approves PRD 2896", "/omni:committee 2896 --approve", "/omni:committee 2896 --item s3-01-keep-the-cap", "/omni:committee omni-loop-28 --item s1-02-parts-live-in-omni-ui".
 ---
 
 # Committee: the fleet decides for a mission, or a person does
@@ -35,6 +35,12 @@ records the decision as the service, from this job's last line, and decides agai
 written any other way is never carried. For an item, the App also settles it on the feature branch,
 `answered by fleet <key>`: this skill never does.
 
+**A product PRD's item** (`<key>-<n> --item <id>`, bug #3363) lives on the Omni page, not in a
+repository: it is read there, as `omni answers ask <key>-<n>` reads it, and the App records the
+decision for the mission branch only (BR-PRODUCT-145). The item stays open on the page for a
+person; the gate into the mission branch reads it as answered (`omni status <key>-<n> --into
+<branch>`). A product PRD is approved on its page, never by this skill.
+
 **Signing.** It makes no commit and opens no pull request, issue or comment. Each verdict is signed
 by its role and `agent` in the record, never in a person's name (L-AIACT-1).
 
@@ -54,8 +60,10 @@ decide answers `unsure`, and the item is deferred, or the PRD goes to a person.
 
 `<n> --approve`, or `<n> --item <id> [--bound <0-1>]`, `--bound` the mission's
 `mandate.hardToRevert`; and `--author <role>` (`pm`, `architect` or `reviewer`) when a hero of the
-fleet wrote the PRD or raised the item. With neither `--approve` nor `--item`, say that this skill
-takes `<n> --approve` or `<n> --item <id>`, and stop. `<what>` below is `--approve`, or
+fleet wrote the PRD or raised the item. `<n>` is a repository PRD's number, or a product PRD's id
+`<key>-<n>` with `--item` only (bug #3363). With neither `--approve` nor `--item`, say that this skill
+takes `<n> --approve` or `<n> --item <id>`, and stop; with a product PRD's id and `--approve`, stop
+with `committee: PRD <key>-<n> is approved on its page`. `<what>` below is `--approve`, or
 `--item <id> [--bound <b>]` as given.
 
 ## Step 0
@@ -71,6 +79,12 @@ rules bind every step below.
 and the PRD or the item goes to a person.
 
 ## 1. Find the PRD's files
+
+**A product PRD** (`<key>-<n>`): skip this step, and run every step below in this checkout. Its item
+is on the Omni page, which step 2 reads; the members read it whole as
+`node .omni-loop/bin/omni.mjs answers ask <key>-<n> --json` prints it (the question of that id), with
+the spec and the plan beside it from `node .omni-loop/bin/omni.mjs dossier get <key>-<n> spec` and
+`… plan`. An item that is not open there stops step 2 with its line.
 
 1. `git fetch <remote>`. When `<remote>/<feature branch>` exists, check it out in a worktree of
    its own, under `worktrees`: `git worktree add --detach <path> <remote>/<feature branch>`. Every
@@ -132,5 +146,5 @@ and ends on its record line, `omni committee: {…}`, which the App reads.
   sentence `Its verdict did not read.`, and run it again once.
 - Exit `2`: stop with `committee: <its line>`.
 
-Remove the worktree when there is one (`git worktree remove <path>`), then end the run on the record
+Remove the worktree when there is one (never for a product PRD, which has none) (`git worktree remove <path>`), then end the run on the record
 line, exactly as it printed: the mission reads the last one the log holds.

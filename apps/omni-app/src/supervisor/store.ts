@@ -29,6 +29,7 @@ export const FAILED_JOB = `${WATCH_JOB}, log_tail`;
 export const WATCH_MISSION = 'id, number, title, status, updated_at';
 export const SIGNAL = 'id, fingerprint, opened_at, finding_id';
 export const FINDING = 'id, state, raised_by, looked_at';
+export const HELD = 'finding_id';
 export const DISMISSAL = 'evidence_key, supervisor_findings!inner(fingerprint)';
 
 export const LaneRowSchema = z.object({ workspace_id: z.uuid() });
@@ -62,6 +63,7 @@ export const FindingRowSchema = z.object({
   id: z.uuid(), state: z.enum(['open', 'acted', 'dismissed', 'resolved']), raised_by: z.enum(['check', 'supervisor']), looked_at: z.string().nullable(),
 });
 export const DismissalRowSchema = z.object({ evidence_key: z.string().nullable(), supervisor_findings: z.object({ fingerprint: z.string().nullable() }) });
+export const HeldRowSchema = z.object({ finding_id: z.uuid().nullable() });
 const IdRowSchema = z.object({ id: z.uuid() });
 
 /** The last line of a log tail, masked. */
@@ -220,7 +222,13 @@ export function watchStore(connection: Connection): WatchStore {
     },
 
     async resolveFindings(ids, at) {
-      done(await db.from('supervisor_findings').update({ state: 'resolved', closed_at: at }).in('id', [...ids]).eq('state', 'open'));
+      // A finding still holding an open signal stays open, whatever the plan read (PRD omni-loop-35): its signals are
+      // read again here, past the open signals' page the plan was made from.
+      const held = new Set(rowsOf(HeldRowSchema, await db.from('supervisor_signals').select(HELD).in('finding_id', [...ids]).is('closed_at', null).limit(1000))
+        .flatMap((row) => (row.finding_id === null ? [] : [row.finding_id])));
+      const free = ids.filter((id) => !held.has(id));
+      if (free.length === 0) return;
+      done(await db.from('supervisor_findings').update({ state: 'resolved', closed_at: at }).in('id', free).eq('state', 'open'));
     },
 
     async raise(finding, at) {

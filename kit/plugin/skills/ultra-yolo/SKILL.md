@@ -196,6 +196,11 @@ step 5 reads it green.
 node .omni-loop/bin/omni.mjs status <key>-<n>     # exit 0 green, 1 red or held
 ```
 
+**Into a mission branch** (`--base-of`, bug #3363), the gate is read into it:
+`node .omni-loop/bin/omni.mjs status <key>-<n> --into <target base>`. There a high item the
+mission's fleet answered for that branch counts as answered (BR-PRODUCT-145); it stays open on the
+page for a person, and the gate read with no `--into` still holds it.
+
 No outbox comment is posted (`omni comment` is not run): the questions are answered on the
 product's **Questions** tab, or here. There is no `omni ship`, no release note and no plan PR body.
 
@@ -236,6 +241,33 @@ start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 The red ending names `<product> › Questions` and its last line is `/omni:ultra-yolo-fix <key>-<n>`;
 the held ending's is `/omni:ultra-yolo <key>-<n>`.
+
+**Whether a blocker landed** (bug #3371). Each PRD `<key>-<m>` the spec's `blocked-by` names (or the
+plan says it builds on) is checked against the base it builds on, in each target the plan names: fetch
+`<target base>` first (`git fetch <remote> <target base>`, in the clone or in this checkout), then run
+
+```bash
+node .omni-loop/bin/omni.mjs prd <key>-<m> --landed-in <remote>/<target base> --repo <slug> [--clone <clone>]
+```
+
+It reads the blocker's merged pull requests (those saying `Part of <key>-<m>`, and the mission pull
+request that merged their base onward) and whether one's merge commit is in that base. Exit 0
+(`landed: yes · …`) is landed; so is the blocker's own page state reading `state: shipped`. A blocker
+whose work merged into an earlier mission's branch, that mission's pull request then merged into the
+default branch the base was cut from, is landed. Its page state reading `inbox` never makes it not
+landed, and never guess a folder, a file or a path the blocker would add: only its merged work counts.
+Exit 1 (`landed: no · …`) in every target is not landed; `landed: unknown · gh failed: …` is a read to
+retry once, then not landed, its line quoted.
+
+**Held on other PRDs** (bug #3345). A run that builds nothing because the spec's `blocked-by` or the
+plan waits on PRDs not yet in the base it builds on (**Whether a blocker landed**) ends held, with
+this line on its own just before its last line, each PRD by its id:
+
+```text
+held: PRD <key>-<n> waits on PRD <key>-<m>, PRD <key>-<k> · <page link>
+```
+
+A mission reads it: it sends the build again once each named PRD joined its branch.
 
 **A stop on a person offers the mission** (PRD omni-loop-21). When the run stops on a person, the
 PRD having no plan on its page, still waiting for approval (`held: PRD <key>-<n> still waits for

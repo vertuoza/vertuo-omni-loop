@@ -624,9 +624,10 @@ function resumeOf(firstLine: string, issue: IssueNumber, jobId: string): Served<
 const NOT_OFFERED = 'This job is neither failed, cancelled nor stopped mid-way: the Runners page offers neither Send again nor Resume for it.';
 const CARRIED_ON = 'This job was carried on already.';
 
-/** Whether the Runners page offers Send again (a failed or cancelled job) or Resume (one stopped mid-way) for a job: what a key relaunches (PRD 2425 s7). */
+/** Whether the Runners page offers Send again (a failed, cancelled or expired job, PRD omni-loop-35) or Resume (one stopped mid-way) for a job: what a
+ * key relaunches (PRD 2425 s7). */
 const relaunchable = (job: Pick<JobRow, 'status' | 'outcome'>): boolean =>
-  job.status === 'failed' || job.status === 'cancelled' || (job.status === 'done' && job.outcome === 'stopped');
+  job.status === 'failed' || job.status === 'cancelled' || (job.status === 'done' && (job.outcome === 'stopped' || job.outcome === 'expired'));
 
 /** How long the download link of a resume's save works (PRD 2809, s5): the runner fetches every bundle as it starts the job. */
 export const SIGNED_DOWNLOAD_MS = 10 * 60 * 1000;

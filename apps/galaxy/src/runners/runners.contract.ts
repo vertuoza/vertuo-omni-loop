@@ -316,8 +316,9 @@ export type JobPart = z.infer<typeof JobPartSchema>;
 /** What a done job ended on: a yolo hand-off (PRD 2223), the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held)
  * or `/omni:pr-care` (ready); `human` (PRD 2255), the run ended with the questions it asked a person still open; `stopped` (PRD 2375), a
  * `/omni:yolo` or `/omni:yolo-fix` run that exited with no hand-off line, so it is not done; or the Reviewer's two (PRD 2871), `review`, the
- * run left its PR a draft for the Reviewer (`/omni:review`), and `changes`, the Reviewer raised findings (`/omni:yolo-fix --for-review`). */
-export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes'] as const;
+ * run left its PR a draft for the Reviewer (`/omni:review`), and `changes`, the Reviewer raised findings (`/omni:yolo-fix --for-review`); or
+ * `expired` (PRD omni-loop-35), which only the server's sweep sets: the job ended answers, held or human and nobody continued it in 48 h. */
+export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes', 'expired'] as const;
 
 /** What `runner_jobs.outcome` holds (PRD 2425): the words above and a bug fix's own, `need-human` excepted, which is
  * stored as the `human` the server already sets for questions left open. The page and the terminal read only the

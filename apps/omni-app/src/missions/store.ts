@@ -108,6 +108,7 @@ import {
 import { isProductPrdId, productPrdParts, productRoadmapParts } from 'omni-loop/kit/lib/ids.ts';
 import { planTargets } from './branch.ts';
 import { expandMissionScope, rowsOfRoadmap, type ScopeEntry, type ScopeRow } from './expand.ts';
+import { endedOf, specBlockersOf } from './held.ts';
 import { numberedOf, PrdIdSchema, prdColumns, productRunOfKey, type MissionPrd, type ProductNamed } from './store.prd.ts';
 import { DEFAULT_RESUMES, MISSION_LEVELS, type MissionKind } from 'omni-loop/kit/lib/mission/brief.ts';
 import { BUG_STATES, BUG_TRIES, bugFixLine, bugKey, bugOfKey, type Bug, type BugJob, type BugMove } from './bug-team.ts';
@@ -257,7 +258,7 @@ export type MissionRetros = {
 };
 
 /** An item's committee to send (PRD 2896 s10): the mission, the PRD, the item, and whether the fleet's runners take it. */
-export type Ask = { mission: MissionRecord; prd: PrdNumber; item: string; toFleet: boolean };
+export type Ask = { mission: MissionRecord; prd: MissionPrd; item: string; toFleet: boolean };
 
 /** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
 export type MissionSkill = BuildSkill;
@@ -336,7 +337,7 @@ export type MissionStore = {
   pmJobs: (id: string) => Promise<(PmJob & Resumed)[]>;
   /** The mission's PM job queued under its key: its id, or null when the key was already held. */
   pm: (job: PmSend) => Promise<string | null>;
-  /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>`, in order. */
+  /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>` (or `<key>-<n>`, bug #3363), in order. */
   asks: (id: string) => Promise<Omit<ItemCommittee, 'decision'>[]>;
   /** An item's committee queued, with no mission key: its id, or null when one was sent for that item already. */
   ask: (job: Ask) => Promise<string | null>;
@@ -531,8 +532,9 @@ export const JobRowSchema = z.object({
 });
 export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
 /** An item committee's job (PRD 2896 s10): a job row with its line, which names the PRD and the item. */
-export const ASK = `${JOB}, line`;
-export const AskRowSchema = JobRowSchema.extend({ line: z.string() });
+export const ASK = `${JOB}, line, queued_at`;
+/** Bug #3369: with when it was queued, which a product PRD's build and its item committees are ordered by. */
+export const AskRowSchema = JobRowSchema.extend({ line: z.string(), queued_at: z.string().nullable().default(null) });
 export const CareRowSchema = z.object({ id: text });
 export const EventRowSchema = z.object({ kind: text, prd_id: PrdIdSchema.nullable(), job_id: z.string().nullable() });
 export const DecisionRowSchema = z.object({ job_id: text, outcome: z.enum(['carried', 'escalated']), why: z.array(z.string()) });
@@ -702,6 +704,9 @@ const attemptOf = (row: JobRow): Attempt => ({
   ...(row.limited_until === null ? {} : { limitedUntil: row.limited_until, guessed: row.parts?.at(-1)?.guessed === true }),
 });
 
+/** When a job was queued (bug #3369), absent when the row does not say. */
+const sentOf = (row: z.infer<typeof AskRowSchema>): { sentAt?: string } => (row.queued_at === null ? {} : { sentAt: row.queued_at });
+
 /** A Reviewer job that ended on its verdict (PRD 2871): its log says what it posted. */
 const isVerdict = (step: Step, attempt: Attempt): boolean => step.startsWith('review:') && attempt.status === 'done' && (attempt.outcome === 'changes' || attempt.outcome === 'ready');
 
@@ -780,23 +785,32 @@ export function missionStore(connection: Connection): MissionStore {
   }
 
   /**
-   * `runs`, each Reviewer verdict carrying what its log says it posted, and each QA job that ended done its verdict, or null when
-   * none reads (PRD 3001): one read of those jobs' log tails, none without one. Only the verdict is kept, never a line of the log.
+   * `runs`, each attempt `read` picks given what `keep` makes of its log tail (undefined when it has none): one read of those jobs'
+   * log tails, none without one.
    */
-  async function withPosted(runs: (Run & Resumed)[]): Promise<(Run & Resumed)[]> {
-    const read = (step: Step, attempt: Attempt): boolean => isVerdict(step, attempt) || isChecked(step, attempt);
-    const ids = runs.flatMap((one) => one.attempts.filter((attempt) => read(one.step, attempt)).map((attempt) => attempt.id));
+  async function withLogs<R extends { attempts: Attempt[] }>(runs: R[], read: (one: R, attempt: Attempt) => boolean, keep: (one: R, attempt: Attempt, log: string | undefined) => Attempt): Promise<R[]> {
+    const ids = runs.flatMap((one) => one.attempts.filter((attempt) => read(one, attempt)).map((attempt) => attempt.id));
     if (ids.length === 0) return runs;
     const logs = new Map(rowsOf(JobLogRowSchema, await db.from('runner_jobs').select(JOB_LOG).in('id', ids)).map((row) => [row.id, row.log_tail]));
-    return runs.map((one) => ({
-      ...one,
-      attempts: one.attempts.map((attempt) => {
-        const log = logs.get(attempt.id);
-        if (isChecked(one.step, attempt)) return { ...attempt, checked: log === undefined ? null : qaLine(log) };
-        return log === undefined || !isVerdict(one.step, attempt) ? attempt : { ...attempt, posted: postedOf(log) };
-      }),
-    }));
+    return runs.map((one) => ({ ...one, attempts: one.attempts.map((attempt) => (read(one, attempt) ? keep(one, attempt, logs.get(attempt.id)) : attempt)) }));
   }
+
+  /**
+   * `runs`, each Reviewer verdict carrying what its log says it posted, and each QA job that ended done its verdict, or null when
+   * none reads (PRD 3001). Only the verdict is kept, never a line of the log.
+   */
+  const withPosted = (runs: (Run & Resumed)[]): Promise<(Run & Resumed)[]> =>
+    withLogs(runs, (one, attempt) => isVerdict(one.step, attempt) || isChecked(one.step, attempt), (one, attempt, log) => {
+      if (isChecked(one.step, attempt)) return { ...attempt, checked: log === undefined ? null : qaLine(log) };
+      return log === undefined ? attempt : { ...attempt, posted: postedOf(log) };
+    });
+
+  /**
+   * `runs`, each product build that ended done with no result word carrying the PRDs its log's held line names, and whether it ended
+   * on its red gate (bug #3345, ./held.ts › endedOf). Only those are kept, never a line of the log.
+   */
+  const withHeldOn = (runs: ProductRun[]): Promise<ProductRun[]> =>
+    withLogs(runs, (_one, attempt) => attempt.status === 'done' && attempt.outcome === null, (one, attempt, log) => (log === undefined ? attempt : endedOf(attempt, log, one.prd)));
 
   /** The latest plan on a PRD's page; null when it has none. */
   async function planOf(dossier: string | undefined): Promise<string | null> {
@@ -969,8 +983,8 @@ export function missionStore(connection: Connection): MissionStore {
     return null;
   }
 
-  /** The latest version of `kind` (`plan`, `roadmap`) a dossier holds; null when it holds none. */
-  async function latestOf(dossier: string | null, kind: 'plan' | 'roadmap'): Promise<string | null> {
+  /** The latest version of `kind` (`plan`, `roadmap`, `spec`) a dossier holds; null when it holds none. */
+  async function latestOf(dossier: string | null, kind: 'plan' | 'roadmap' | 'spec'): Promise<string | null> {
     if (dossier === null) return null;
     const [version] = rowsOf(PlanRowSchema, await db.from('dossier_versions').select(PLAN).eq('dossier_id', dossier).eq('kind', kind).order('created_at', { ascending: false }).limit(1));
     return version?.content ?? null;
@@ -1008,21 +1022,26 @@ export function missionStore(connection: Connection): MissionStore {
       if (mission.products === undefined) return [];
       const owner = mission.repo.split('/')[0] ?? '';
       const out: StoredProduct[] = [];
-      for (const { prd, blockers } of await productScope(mission, mission.products)) {
+      const scope = await productScope(mission, mission.products);
+      const named = new Set(scope.map((entry) => entry.prd));
+      for (const { prd, blockers } of scope) {
         if (!isProductPrdId(prd)) continue;
         const page = await productDossier(mission, { ...productPrdParts(prd), kind: 'prd' });
         const approved = page === null ? new Map<string, { voided: boolean; overturned: boolean }>() : await approvals([page], mission.id, new Map());
         const plan = await latestOf(page, 'plan');
-        out.push({ prd, approval: approvalOf(page === null ? null : (approved.get(page) ?? null)), blockers, targets: plan === null ? [] : planTargets(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
+        // Bug #3345: a list names no order, so the spec's own `blocked-by` adds the PRDs of the scope it waits on.
+        const declared = specBlockersOf(await latestOf(page, 'spec'), prd).filter((one) => named.has(one));
+        const waits = [...new Set([...blockers, ...declared])];
+        out.push({ prd, approval: approvalOf(page === null ? null : (approved.get(page) ?? null)), blockers: waits, targets: plan === null ? [] : planTargets(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
       }
       return out;
     },
 
     async runs(id) {
-      return (await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }): ProductRun[] => {
+      return withHeldOn((await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }): ProductRun[] => {
         const key = row.mission_key === null ? null : productRunOfKey(row.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
-      });
+        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts, ...sentOf(row) }];
+      }));
     },
 
     send: ({ mission, prd, run, line, toFleet }) => queue({ mission, toFleet, line, key: missionKey(mission.id, prd, run) }),
@@ -1199,7 +1218,7 @@ export function missionStore(connection: Connection): MissionStore {
       const rows = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).is('mission_key', null).like('line', '/omni:committee % --item %').order('queued_at'));
       return rows.flatMap((row) => {
         const named = itemOfLine(row.line);
-        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row) }];
+        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row), ...sentOf(row) }];
       });
     },
 

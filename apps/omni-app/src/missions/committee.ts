@@ -24,6 +24,7 @@ import { routes } from 'omni-loop/kit/lib/committee/escalation.ts';
 import { answerOf, committeeOf, type CommitteeRecord } from 'omni-loop/kit/lib/committee/record.ts';
 import { COMMITTEE_ROLES, tally, type CommitteeRole, type MemberVerdict } from 'omni-loop/kit/lib/committee/vote.ts';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { MissionPrd } from './store.prd.ts';
 import type { Approval, Attempt, MissionStatus } from './supervisor.ts';
 
 /** The most committees a PRD is sent for its approval: a third carried approval a push voided waits for a person. */
@@ -99,7 +100,7 @@ function noRecord(attempt: Pick<Attempt, 'status'>): { verdicts: MemberVerdict[]
 }
 
 /** Item committee `one`'s answer record in its job's log `log`; null when its job did not end done or its log holds none. */
-export function itemAnswerOf(prd: PrdNumber, one: { item: string; attempt: Pick<Attempt, 'status'> }, log: string | null): ReturnType<typeof answerOf> {
+export function itemAnswerOf(prd: MissionPrd, one: { item: string; attempt: Pick<Attempt, 'status'> }, log: string | null): ReturnType<typeof answerOf> {
   return one.attempt.status === 'done' && log !== null ? answerOf(log, prd, one.item) : null;
 }
 
@@ -176,7 +177,7 @@ const allYes = (verdicts: readonly MemberVerdict[]): string => `every member who
  * Carried and deferred both let the PRD go on ({@link goesOn}): the item is answered for the mission branch only, and a person
  * answers it on the mission pull request (BR-PRODUCT-145). Its why is never empty.
  */
-export function itemDecisionOf(prd: PrdNumber, one: { item: string; attempt: Pick<Attempt, 'status'> }, log: string | null): { verdicts: MemberVerdict[]; decision: ItemDecided } {
+export function itemDecisionOf(prd: MissionPrd, one: { item: string; attempt: Pick<Attempt, 'status'> }, log: string | null): { verdicts: MemberVerdict[]; decision: ItemDecided } {
   const found = itemAnswerOf(prd, one, log);
   if (found === null) {
     const none = unanswered(one.attempt);

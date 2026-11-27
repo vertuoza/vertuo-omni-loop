@@ -6,7 +6,8 @@
  *                    "escalations":[],"verdicts":[{"role":"pm","answer":"yes","sentence":"…"}, …],"outcome":"carried"}
  *
  * A high outbox item's answer (PRD 2896 s10) is `"kind":"answer"`, with the `item` it answers and the `option` it settles
- * it with, its `read` the item file by its hash.
+ * it with, its `read` the item file by its hash. A product PRD's item (bug #3363) names its PRD by its id, `"prd":"omni-loop-28"`,
+ * its `read` the item as the Omni page holds it.
  *
  * `read` is each file the committee read, by its kind and hash, so a carried approval covers exactly those
  * (BL-APPROVALS-1); `escalations` what the list named; `verdicts` each member's, as recorded. The App never takes
@@ -14,7 +15,7 @@
  * line of the log, a person's words or a credential (L-GDPR-2).
  */
 import { z } from 'zod';
-import { OutboxItemIdSchema, PrdNumberSchema, type PrdNumber } from '../ids.ts';
+import { OutboxItemIdSchema, PrdNumberSchema, ProductPrdIdSchema, type PrdNumber, type ProductPrdId } from '../ids.ts';
 import { CommitteeRoleSchema, VerdictSchema, COMMITTEE_ROLES } from './vote.ts';
 
 /** What the line starts with. */
@@ -40,7 +41,8 @@ const RECORD = {
 
 const CommitteeRecordSchema = z.discriminatedUnion('kind', [
   z.object({ ...RECORD, kind: z.literal('approve') }),
-  z.object({ ...RECORD, kind: z.literal('answer'), item: OutboxItemIdSchema, option: z.string().regex(/^[A-Z]$/) }),
+  // An answer names a repository PRD by its number, or a product PRD by its id (bug #3363): an approval, a number only.
+  z.object({ ...RECORD, prd: z.union([PrdNumberSchema, ProductPrdIdSchema]), kind: z.literal('answer'), item: OutboxItemIdSchema, option: z.string().regex(/^[A-Z]$/) }),
 ]);
 
 export type CommitteeRecord = z.infer<typeof CommitteeRecordSchema>;
@@ -78,8 +80,8 @@ export function committeeOf(log: string, prd: PrdNumber): ApprovalRecord | null 
   return null;
 }
 
-/** The last answer record `log` holds for item `item` of PRD `prd` (PRD 2896 s10); null when it holds none that reads whole. */
-export function answerOf(log: string, prd: PrdNumber, item: string): AnswerRecord | null {
+/** The last answer record `log` holds for item `item` of PRD `prd` (PRD 2896 s10), a product PRD's by its id (bug #3363); null when it holds none that reads whole. */
+export function answerOf(log: string, prd: PrdNumber | ProductPrdId, item: string): AnswerRecord | null {
   for (const record of recordsOf(log)) if (record.kind === 'answer' && record.prd === prd && record.item === item) return record;
   return null;
 }

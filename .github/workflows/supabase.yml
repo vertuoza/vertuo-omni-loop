@@ -601,6 +601,13 @@ jobs:
         # nothing; only an owner clears memory or approves a proposal; a clear keeps findings, proposals and messages;
         # proposals are append-only; app_errors are masked and kept 14 days (PRD omni-loop-34 s1).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/supervisor.sql
+      - name: Jobs doing nothing for 48 h expire, and the per-job findings close as grouped
+        # As the service role only, runner_jobs_expire(): a queued job no runner took 48 h since it could first run ends
+        # failed and queues no resume; a job ended held, answers or human and continued by no job for 48 h keeps status
+        # done and reads expired, its unanswered rounds closed with no answer; a mission's job, a cancel asked, a
+        # continued job and an answered round are untouched; the open stuck:queue:<job> and stuck:waiting:<job> findings
+        # close as resolved with a Grouped now line; a second run changes nothing (PRD omni-loop-35 s1).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_jobs_expire.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

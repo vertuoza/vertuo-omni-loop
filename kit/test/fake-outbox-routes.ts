@@ -31,6 +31,8 @@ export function fakeOutboxRoutes({ prds = ['mobile-12'] }: { prds?: readonly str
   const store = new Map<string, Row[]>(prds.map((prd) => [prd, []]));
   const calls: { method: string; url: string; body: unknown }[] = [];
   const state = { down: false };
+  /** Bug #3363: each item a mission's fleet answered, by PRD, with the mission branch it answered it for. */
+  const fleet: { prd: string; item: string; branch: string }[] = [];
 
   /** Why the item `body` may not be put on `rows`, or null when it may. */
   function putRefusal(rows: Row[], body: unknown): Response | null {
@@ -75,7 +77,9 @@ export function fakeOutboxRoutes({ prds = ['mobile-12'] }: { prds?: readonly str
     const route = `${method} ${url.pathname}`;
     if (route === 'POST /api/outbox/items') return put(rows, body);
     if (route === 'POST /api/outbox/items/settle') return settle(rows, body);
-    return json(200, { prdId, items: rows.map((row) => ({ ...row })) });
+    const into = query.get('into');
+    const answered = (item: string): boolean => fleet.some((one) => one.prd === prdId && one.item === item && one.branch === into);
+    return json(200, { prdId, items: rows.map((row) => (into === null ? { ...row } : { ...row, fleet: answered(row.item) })) });
   }
 
   const fetch: Fetch = (target, init) =>
@@ -93,6 +97,8 @@ export function fakeOutboxRoutes({ prds = ['mobile-12'] }: { prds?: readonly str
     calls,
     /** Every row of `prd`, as stored. */
     rows: (prd: string): readonly Row[] => store.get(prd) ?? [],
+    /** Bug #3363: the fleet of the mission whose branch is `branch` carried or deferred item `item` of `prd`. */
+    fleetAnswered: (prd: string, item: string, branch: string) => { fleet.push({ prd, item, branch }); },
     /** Takes the server down, or brings it back. */
     setDown: (down: boolean) => { state.down = down; },
   };

@@ -5,11 +5,13 @@
 //
 //   silent-job          stuck   running, its runner seen within 90 s, no new line for 3× the step's usual time and at
 //                               least 20 min ("the step's usual time": the seat's baseline, else 20 min)
-//   queue-stuck         stuck   queued 15 min while no online runner holding the repository can take it
+//   queue-stuck         stuck   queued 15 min while no online runner holding the repository can take it: one fire per
+//                               repository, its jobs listed (PRD omni-loop-35)
 //   resume-loop         stuck   a job lost a third time: its chain was lost and resumed until no attempt is left
 //   mission-not-moving  stuck   a mission running or waiting with no event for 2 h, its ledger run failed, or the same
 //                               `/omni:repair` sent 3 times
-//   waiting-too-long    stuck   a job Need human, Waiting on answers or Held for more than 4 h, not continued
+//   waiting-too-long    stuck   a job Need human, Waiting on answers or Held for more than 4 h, not continued: one fire
+//                               per kind of wait, its jobs listed (PRD omni-loop-35)
 //   same-failure        bug     3 jobs or more ended failed with the same reason or the same last line within 6 h
 //   route-failing       bug     3 or more of the workspace's App 5xx on one route within 1 h
 //   late-schedule       bug     background_jobs_health() reads late, or a scheduled kind failed 3 times in a row
@@ -197,22 +199,51 @@ function canTake(runner: WatchRunner, job: WatchJob, now: number): boolean {
   return job.toFleet === null || job.toFleet === runner.fleet;
 }
 
-/** Queue nobody can take: queued 15 min (from its resume time, for a resume) while no online runner can take it. */
-export const queueStuck: Check = ({ now, jobs, runners }) =>
-  jobs.flatMap((job) => {
-    if (job.status !== 'queued') return [];
+/** How many jobs a grouped fire lists as its evidence (the rest count in its figures and its key). */
+const GROUP_EVIDENCE = 50;
+
+/**
+ * The fire of a group of jobs that share one cause: its evidence the jobs, the longest waiting first (50 at most), its
+ * key their sorted ids, so it moves only when the set of jobs changes (PRD omni-loop-35).
+ */
+function grouped(waits: readonly { job: WatchJob; waited: number }[]): { evidence: Evidence[]; evidenceKey: string; oldest: number } {
+  const longest = [...waits].sort((a, b) => b.waited - a.waited || a.job.id.localeCompare(b.job.id));
+  return {
+    evidence: longest.slice(0, GROUP_EVIDENCE).map(({ job }): Evidence => ({ of: 'job', id: job.id, text: clean(job.line) })),
+    evidenceKey: evidenceKey(waits.map(({ job }) => job.id).sort()),
+    oldest: longest[0]?.waited ?? 0,
+  };
+}
+
+/** `ms` in days, as a line reads it: `10`, `2.5`. */
+const days = (ms: number): string => String(Number((ms / (24 * HOUR)).toFixed(1)));
+
+/**
+ * Queue nobody can take: a job queued 15 min (from its resume time, for a resume) while no online runner can take it.
+ * One fire per repository (PRD omni-loop-35), `stuck:queue-repo:<owner/repo>`, its repository in lower case, listing the
+ * jobs queued there that nobody can take.
+ */
+export const queueStuck: Check = ({ now, jobs, runners }) => {
+  const byRepo = new Map<string, { job: WatchJob; waited: number }[]>();
+  for (const job of jobs) {
+    if (job.status !== 'queued') continue;
     const since = Math.max(Date.parse(job.queuedAt), job.resumeAfter === null ? 0 : Date.parse(job.resumeAfter));
     const waited = now - since;
-    if (waited < 15 * MINUTE || runners.some((runner) => canTake(runner, job, now))) return [];
-    return [{
-      fingerprint: `stuck:queue:${job.id}`, check: 'queue-stuck', kind: 'stuck', severity: 'medium',
-      title: `A job for ${job.repo} waits with no runner to take it`,
-      checkLine: `Queue nobody can take: queued ${minutes(waited)} min, no online runner can take ${job.repo}`,
-      figures: { queuedMin: Number(minutes(waited)), runners: runners.length },
-      evidence: [{ of: 'job', id: job.id, text: clean(job.line) }],
-      evidenceKey: evidenceKey([job.id]),
-    }];
+    if (waited < 15 * MINUTE || runners.some((runner) => canTake(runner, job, now))) continue;
+    const repo = job.repo.toLowerCase();
+    byRepo.set(repo, [...(byRepo.get(repo) ?? []), { job, waited }]);
+  }
+  return [...byRepo.entries()].map(([repo, waits]): Fire => {
+    const { evidence, evidenceKey: key, oldest } = grouped(waits);
+    return {
+      fingerprint: `stuck:queue-repo:${repo}`, check: 'queue-stuck', kind: 'stuck', severity: 'medium',
+      title: `${String(waits.length)} jobs for ${repo} wait with no runner to take them`,
+      checkLine: `Queue nobody can take: ${String(waits.length)} jobs queued up to ${days(oldest)} days, no online runner can take ${repo}`,
+      figures: { jobs: waits.length, oldestDays: Number(days(oldest)), oldestMin: Number(minutes(oldest)), runners: runners.length },
+      evidence, evidenceKey: key,
+    };
   });
+};
 
 /** Resume loop: a job lost on its third attempt within a day, so its chain was lost 3 times and nothing resumes it. */
 export const resumeLoop: Check = ({ now, jobs }) =>
@@ -266,26 +297,39 @@ export const missionNotMoving: Check = ({ now, missions }) =>
     }];
   });
 
-/** Waiting too long: a job Need human, Waiting on answers or Held for more than 4 h, which nothing continued. */
-export const waitingTooLong: Check = ({ now, jobs }) =>
-  jobs.flatMap((job) => {
+/**
+ * Waiting too long: a job Need human, Waiting on answers or Held for more than 4 h, which nothing continued. One fire
+ * per kind of wait (PRD omni-loop-35), `stuck:waiting:<held|answers|human>`, listing its jobs. An expired job waits no
+ * more: its outcome is no longer one of the three.
+ */
+export const waitingTooLong: Check = ({ now, jobs }) => {
+  const byState = new Map<string, { job: WatchJob; waited: number }[]>();
+  for (const job of jobs) {
     const label = job.outcome === null ? undefined : WAITING[job.outcome];
-    if (job.status !== 'done' || label === undefined || job.continued) return [];
+    if (job.status !== 'done' || job.outcome === null || label === undefined || job.continued) continue;
     const waited = age(job.endedAt, now);
-    if (!Number.isFinite(waited) || waited <= 4 * HOUR) return [];
-    return [{
-      fingerprint: `stuck:waiting:${job.id}`, check: 'waiting-too-long', kind: 'stuck', severity: 'medium',
-      title: `A ${skillOf(job.line)} job waits on a person`,
-      checkLine: `Waiting too long: ${label} for ${hours(waited)} h`,
-      figures: { waitedHours: Number(hours(waited)), state: label },
-      evidence: [{ of: 'job', id: job.id, text: clean(job.line) }],
-      evidenceKey: evidenceKey([job.id]),
-    }];
+    if (!Number.isFinite(waited) || waited <= 4 * HOUR) continue;
+    byState.set(job.outcome, [...(byState.get(job.outcome) ?? []), { job, waited }]);
+  }
+  return [...byState.entries()].map(([state, waits]): Fire => {
+    const label = WAITING[state] ?? state;
+    const { evidence, evidenceKey: key, oldest } = grouped(waits);
+    return {
+      fingerprint: `stuck:waiting:${state}`, check: 'waiting-too-long', kind: 'stuck', severity: 'medium',
+      title: `${String(waits.length)} jobs wait on a person: ${label}`,
+      checkLine: `Waiting too long: ${String(waits.length)} jobs ${label} for up to ${hours(oldest)} h`,
+      figures: { jobs: waits.length, waitedHours: Number(hours(oldest)), state: label },
+      evidence, evidenceKey: key,
+    };
   });
+};
 
 type FailureGroup = { by: 'reason' | 'line'; text: string; ids: string[] };
 
 /** The failed jobs of the last 6 h, grouped by their reason and by their last line, masked. */
+/** The reason the 48 h sweep gives a job it ends on purpose (omni-loop-35): never a failure to report (#3366). */
+const EXPIRED_REASON = 'Expired:';
+
 function failureGroups(jobs: readonly WatchJob[], now: number): FailureGroup[] {
   const groups = new Map<string, FailureGroup>();
   const add = (by: FailureGroup['by'], raw: string | null, id: string) => {
@@ -296,7 +340,7 @@ function failureGroups(jobs: readonly WatchJob[], now: number): FailureGroup[] {
     groups.set(`${by}\n${text}`, group);
   };
   for (const job of jobs) {
-    if (job.status !== 'failed' || age(job.endedAt, now) > 6 * HOUR) continue;
+    if (job.status !== 'failed' || age(job.endedAt, now) > 6 * HOUR || job.reason?.startsWith(EXPIRED_REASON) === true) continue;
     add('reason', job.reason, job.id);
     add('line', job.lastLine, job.id);
   }

@@ -83,6 +83,7 @@ export function fakeStore(w: World, now: () => string = () => T0, fail: { error:
     openSignals: (workspace) => Promise.resolve(w.signals.filter((s) => s.workspace_id === workspace && s.closed_at === null)),
     signals: (workspace, ids) => Promise.resolve(w.signals.filter((s) => s.workspace_id === workspace && ids.includes(s.id))),
     attachSignals: async (ids, finding) => { await tick(); for (const s of w.signals) if (ids.includes(s.id)) s.finding_id = finding; },
+    signalsOfFinding: (workspace, finding) => Promise.resolve(w.signals.filter((s) => s.workspace_id === workspace && s.finding_id === finding)),
     findings: (workspace, open) => Promise.resolve(w.findings.filter((f) => f.workspace_id === workspace && (f.state === 'open') === open)),
     finding: (workspace, findingId) => Promise.resolve(w.findings.find((f) => f.workspace_id === workspace && f.id === findingId) ?? null),
     lastOfFingerprint: (workspace, fingerprint) => Promise.resolve(w.findings.filter((f) => f.workspace_id === workspace && f.fingerprint === fingerprint).at(-1) ?? null),
@@ -97,6 +98,13 @@ export function fakeStore(w: World, now: () => string = () => T0, fail: { error:
       const row = w.findings.find((f) => f.id === findingId);
       if (!row) throw new Error(`no finding ${findingId}`);
       Object.assign(row, { explanation, looked_at: at });
+      return { ...row };
+    },
+    extendFinding: async (findingId, change) => {
+      await tick();
+      const row = w.findings.find((f) => f.id === findingId);
+      if (!row) throw new Error(`no finding ${findingId}`);
+      Object.assign(row, change);
       return { ...row };
     },
     markNotified: async (findingId, at) => {
