@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target4) => (target4 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.734" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.735" };
   }
 });
 
@@ -70865,7 +70865,7 @@ function lastLine6(log) {
 }
 function ultraOutcome(log, args) {
   const prd2 = args.trim().split(/\s+/)[0] ?? "";
-  const words6 = lastLine5(log).replaceAll("`", "").trim().split(/\s+/);
+  const words6 = lastLine6(log).replaceAll("`", "").trim().split(/\s+/);
   return prd2 !== "" && words6[0] === "/omni:mega-pr-care" && words6[1] === prd2 ? "ready" : null;
 }
 function fixIssueOf(args) {
