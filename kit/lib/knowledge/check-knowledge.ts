@@ -42,7 +42,9 @@
  *   repository, its plan repository's copy) under the id of a higher level's entry (the plan
  *   repository's, the Omni settings') says what that entry says: another statement or another kind
  *   is a contradiction, naming both entries and their levels (`knowledge-tree/product.ts`). A
- *   repository with no level above it grades as before.
+ *   repository with no level above it grades as before;
+ * - **law variants** (PRD 3375) — `product/law-variants.json`, when there is one, reads (`law-variants.ts`),
+ *   declares every audience it maps, names only the folder's business laws, and dates no check after today.
  *
  * In an imported copy's context (`ctx.copyOf`, PRD 522, `copies.mjs`) every path names a file of
  * the target, so none is looked up: the honesty checks on paths and the owning libraries are skipped.
@@ -77,6 +79,7 @@ import {
 import { isLayer, LAYER_ALIASES, layerList } from '../layers/layers.ts';
 import { readDecisions } from '../playbook/decisions.ts';
 import { BUSINESS_LAWS_FILE, businessLawProblems, readBusinessLaws } from './business-laws.ts';
+import { lawVariantProblems, readLawVariants } from './law-variants.ts';
 import { invalidGoverns } from './disclose.ts';
 import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
 import { ownersBlockProblems } from '../codeowners-laws.ts';
@@ -712,6 +715,20 @@ function findBusinessLawViolations(ctx: CheckCtx): Violation[] {
   return businessLawProblems(readBusinessLaws({ ctx }), { owners, where: ctx.layout.knowledgeRoot }).map((text) => ({ text }));
 }
 
+/**
+ * The law variants (PRD 3375), when the folder holds `product/law-variants.json`: each problem the file has,
+ * named by its path and the JSON path at fault, its laws looked up among the folder's business laws and its
+ * days against `today`. Whether a `legal` id is one the product holds is asked online, never here.
+ */
+function findLawVariantViolations(ctx: CheckCtx, today: Date): Violation[] {
+  const read = readLawVariants({ ctx });
+  if (read.state === 'none') return [];
+  const problems = read.state === 'unreadable'
+    ? read.problems
+    : lawVariantProblems(read.variants, { laws: readBusinessLaws({ ctx }).map(({ id }) => id), today });
+  return problems.map((problem) => ({ text: `${read.file}: ${problem}` }));
+}
+
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
@@ -748,16 +765,19 @@ export function findProposals(entries: readonly KnowledgeEntry[]): Violation[] {
  * `files` names the entry files to check for stray id citations (the caller — a test, or the CLI
  * with `readKnowledge({ ctx }).entries` reduced to their `file`s — already knows which files those
  * are). `glossaryText` lets a caller supply the glossary's text directly instead of having it read
- * from `ctx.config.paths.glossary`, which is `null` when the repository configures none.
+ * from `ctx.config.paths.glossary`, which is `null` when the repository configures none. `now` is the
+ * clock a law variant's day is judged by (PRD 3375).
  */
 export function gradeKnowledge({
   ctx,
   files = [],
   glossaryText,
+  now = () => new Date(),
 }: {
   ctx: CheckCtx;
   files?: readonly string[];
   glossaryText?: string;
+  now?: () => Date;
 }): { violations: string[]; wishes: string[]; proposals: string[] } {
   const knowledge = readKnowledge({ ctx });
   const resolve = (id: string) => knowledge.entries.find((entry) => entry.id === id);
@@ -778,6 +798,7 @@ export function gradeKnowledge({
     ...findOwnersBlockViolations(ctx, knowledge),
     ...findLevelContradictions(ctx),
     ...findBusinessLawViolations(ctx),
+    ...findLawVariantViolations(ctx, now()),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve)),
   ];
 
