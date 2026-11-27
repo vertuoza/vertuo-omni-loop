@@ -1,3 +1,5 @@
+import { Streamed } from '../skeleton/Streamed';
+import { ListSkeleton } from '../skeleton/Skeleton';
 import { Notice } from '../ask/page/Notice';
 import { APP_HOME } from '../switch/switch';
 import type { Claim, Product } from './model';
@@ -18,6 +20,9 @@ import type { AgentQuestion } from '../agent-connect/questions/model';
 // Since PRD 2240 s6 the page keeps only "+ Add a product" (BusinessPage part `products`): Region, the picks,
 // the claim lists, To check and the draft are the product's Knowledge › Settings.
 //
+// Each of the two may be a read still pending (omni-loop-29 s2): it then streams in its own Suspense, a
+// skeleton in its place, and the claims never wait for it.
+//
 // Below the business, Connect an agent (PRD 855 s1, ../agent-connect/tokens/): a member's read-only
 // links for their editors' agents, shown once made, and the workspace's list, when the page has it.
 // Above it, the questions agents couldn't answer (PRD 855 s3, ../agent-connect/questions/), when the
@@ -28,7 +33,7 @@ export type BusinessScreenView =
   | { kind: 'sign-in' }
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
-  | ({ kind: 'business'; agents?: ConnectAgentProps; questions?: AgentQuestionsProps } & BusinessPageProps);
+  | ({ kind: 'business'; agents?: ConnectAgentProps | Promise<ConnectAgentProps>; questions?: AgentQuestionsProps | Promise<AgentQuestionsProps> } & BusinessPageProps);
 
 /** The demo's sample claims: a filled business, some of it cited. No real company is named. */
 export const DEMO_CLAIMS: Claim[] = [
@@ -137,18 +142,31 @@ function BusinessBody({ view }: { view: BusinessScreenView }) {
             </section>
           </div>
           <BusinessPage {...props} part="products" />
-          {questions && (
-            <div className="ask-col business-agents">
-              <AgentQuestions {...questions} />
-            </div>
-          )}
-          {agents && (
-            <div className="ask-col business-agents">
-              <ConnectAgent {...agents} />
-            </div>
-          )}
+          <AgentSections questions={questions} agents={agents} />
         </>
       );
     }
   }
+}
+
+/** The agents' two sections below the claims: drawn as given, or streamed in when their read is pending. */
+function AgentSections({ questions, agents }: { questions: AgentQuestionsProps | Promise<AgentQuestionsProps> | undefined; agents: ConnectAgentProps | Promise<ConnectAgentProps> | undefined }) {
+  return (
+    <>
+      {questions && (
+        <div className="ask-col business-agents">
+          {questions instanceof Promise
+            ? <Streamed read={questions} skeleton={<ListSkeleton what="the agents’ questions" rows={2} />}>{(value) => <AgentQuestions {...value} />}</Streamed>
+            : <AgentQuestions {...questions} />}
+        </div>
+      )}
+      {agents && (
+        <div className="ask-col business-agents">
+          {agents instanceof Promise
+            ? <Streamed read={agents} skeleton={<ListSkeleton what="your agent links" rows={2} />}>{(value) => <ConnectAgent {...value} />}</Streamed>
+            : <ConnectAgent {...agents} />}
+        </div>
+      )}
+    </>
+  );
 }
