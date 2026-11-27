@@ -19,6 +19,7 @@ One knowledge item of a product, read whole: a Constituent, a Persona, a Legal e
 - **Back:** `← <Section>`, to the list with its sort kept.
 - **The item:** its id or name, then each field in full, its owner where it has one, Created by, Created
   and Updated; the item's actions beside its id.
+- **Differs for** (a Legal entry only): a block under the item, a line per law variant naming the entry (the audiences it is on for, the feature, the condition key, the check badge); absent when none names it.
 - **History:** the item's events, folded, where they are kept (Constituents, Legal, Glossary).
 
 ## States
@@ -47,3 +48,4 @@ Created by · Created · Updated · History · retired · removed.
 ## Source
 
 - /omni:brainstorm, PRD 2240: .omni-loop/delivery/shipped/2240-product-knowledge-home/before-after.html
+- /omni:brainstorm, PRD 3375: .omni-loop/delivery/inbox/3375-law-variants/before-after.html
