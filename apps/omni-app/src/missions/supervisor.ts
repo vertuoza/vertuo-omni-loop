@@ -1357,6 +1357,8 @@ type ProductWhere = {
   repairs?: RepairView;
   scope?: ReadonlySet<MissionPrd>;
   early?: ReadonlySet<string>;
+  /** Bug #3371: the PRDs outside the scope whose merged work GitHub shows on the mission branch (./join.ts › landed). */
+  landed?: ReadonlySet<MissionPrd>;
   /** Bug #3363: whether the mission runs at `alone`, and the item committees it sent for its product PRDs, each with its decision. */
   answers?: RedGateAt;
 };
@@ -1365,13 +1367,20 @@ type ProductWhere = {
 type RedGateAt = { alone: boolean; asks: readonly ItemCommittee[] };
 
 
+/** What a product PRD's ended build is read against (bug #3345): the PRDs done, the scope, the builds sent early, those landed (bug #3371). */
+type HeldAt = { done: ReadonlySet<MissionPrd>; scope: ReadonlySet<MissionPrd> | undefined; early: ReadonlySet<string>; landed: ReadonlySet<MissionPrd> };
+
 /**
  * Where a product PRD's ended build waits on other PRDs (bug #3345), or null: blocked while a PRD of the scope its spec, its roadmap
  * or its held line names is not on the branch, so it is neither sent again nor repaired; sent again as its next run once they all are,
  * when it was sent before one joined (none of its ends counts); waiting for a person when it was held on a PRD outside the scope that
  * is not on the branch. A build that ended Ready, or failed after its blockers joined, is read as before.
+ *
+ * Bug #3371: a PRD outside the scope whose merged work is on the mission branch (`landed`: an earlier mission's pull request merged it
+ * into the default branch the mission branch was cut from) is on the branch: a build held only on such PRDs is sent again as its next
+ * run, the first time; a second build held so is read as any build held twice (BR-PRODUCT-139), never as waiting for the PRD.
  */
-function heldBuild(fact: ProductFact, latest: ProductRun, last: Attempt, { done, scope, early }: { done: ReadonlySet<MissionPrd>; scope: ReadonlySet<MissionPrd> | undefined; early: ReadonlySet<string> }): ProductState | null {
+function heldBuild(fact: ProductFact, own: readonly ProductRun[], latest: ProductRun, last: Attempt, { done, scope, early, landed }: HeldAt): ProductState | null {
   const end = endOf(last);
   if (end === 'ready') return null;
   const inScope = (prd: MissionPrd): boolean => scope === undefined || scope.has(prd);
@@ -1379,11 +1388,24 @@ function heldBuild(fact: ProductFact, latest: ProductRun, last: Attempt, { done,
   const by = [...new Set([...fact.blockers, ...named])].filter((one) => one !== fact.prd && inScope(one) && !done.has(one));
   if (by.length > 0) return { state: 'blocked', by };
   if (early.has(latest.job)) return end === 'failed' ? null : { state: 'startable', run: latest.run + 1 };
-  const outside = named.filter((one) => !inScope(one) && !done.has(one));
+  return heldOutside(fact, own, latest, end, named.filter((one) => !inScope(one) && !done.has(one)), landed);
+}
+
+/**
+ * Where a build held on PRDs outside the scope (`outside`) is, or null for none: waiting for a person on those not on the branch;
+ * sent again as its next run, the first time, when every one is (`landed`, bug #3371); else read as any other end.
+ */
+function heldOutside(fact: ProductFact, own: readonly ProductRun[], latest: ProductRun, end: JobEnd | null, outside: readonly MissionPrd[], landed: ReadonlySet<MissionPrd>): ProductState | null {
   if (outside.length === 0) return null;
-  const names = outside.map((one) => `PRD ${String(one)}`).join(', ');
+  const off = outside.filter((one) => !landed.has(one));
+  if (off.length === 0) return heldOnLanded(own, landed) > 1 || end === 'failed' ? null : { state: 'startable', run: latest.run + 1 };
+  const names = off.map((one) => `PRD ${String(one)}`).join(', ');
   return { state: 'waits', why: `PRD ${fact.prd}: its build waits on ${names}, outside the mission's scope and not on its branch: merge it, or add it to the scope` };
 }
+
+/** How many of a PRD's builds ended held on a PRD of `landed` (bug #3371). */
+const heldOnLanded = (own: readonly ProductRun[], landed: ReadonlySet<MissionPrd>): number =>
+  own.filter((one) => (one.attempts.at(-1)?.heldOn ?? []).some((prd) => landed.has(prd))).length;
 
 /**
  * Where a product PRD's build that ended on its red gate is (bug #3345), or null for any other end: never a failure, so neither sent
@@ -1452,7 +1474,7 @@ function redCleared(prd: ProductPrdId, own: readonly ProductRun[], latest: Produ
  * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join. A build that ended
  * while what it waits on was off the branch is held too (bug #3345, `heldBuild`), and the ends of builds sent before then count none.
  */
-export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = new Set(), answers = { alone: false, asks: [] } }: ProductWhere): ProductState {
+export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = new Set(), landed = new Set(), answers = { alone: false, asks: [] } }: ProductWhere): ProductState {
   if (joined.has(fact.prd)) return { state: 'joined' };
   const own = runs.filter((one) => one.prd === fact.prd);
   const latest = latestProduct(own, fact.prd);
@@ -1461,7 +1483,7 @@ export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], {
     if (endOf(last) === null) return { state: 'running' };
     // A build sent early, or one that ended on its red gate, is no failure and no stop mid-way: its end counts none.
     const counted = own.filter((one) => one === latest || (!early.has(one.job) && one.attempts.at(-1)?.gateRed !== true));
-    return heldBuild(fact, latest, last, { done, scope, early }) ?? redGate(fact, own, latest, last, answers) ?? productEnded(fact, counted, last, { resumes, repairs });
+    return heldBuild(fact, own, latest, last, { done, scope, early, landed }) ?? redGate(fact, own, latest, last, answers) ?? productEnded(fact, counted, last, { resumes, repairs });
   }
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: 'blocked', by };

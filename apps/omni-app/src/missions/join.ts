@@ -27,6 +27,7 @@ import { messageOf, RefSchema, statusOf, type GitHubClient } from '../outbox-che
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
+import { landedIn, saysPartOf, type LandedReads, type MergedPull } from 'omni-loop/kit/lib/ultra/landed.ts';
 import { judge, type CheckRun, type CommitStatus, type Gate, type OpenItems, type PullRead } from './gate.ts';
 
 /**
@@ -52,10 +53,34 @@ export type MissionJoins = {
    * body says `Part of <id>`, as /omni:ultra-yolo opens them, in order. A GitHub that cannot say leaves it out: no product PRD joins.
    */
   targets?: (at: { installation: number; repos: readonly string[]; prd: ProductPrdId; branch: string }) => Promise<TargetPull[]>;
+  /**
+   * Whether product PRD `prd`'s merged work is on `branch` in one of `repos` (bug #3371, omni-loop/kit/lib/ultra/landed.ts): a
+   * merged pull request saying `Part of <prd>`, or the pull request that merged its base onward, has its merge commit on the branch. A
+   * GitHub that cannot say leaves it out: the PRD is read as not on the branch.
+   */
+  landed?: (at: { installation: number; repos: readonly string[]; prd: ProductPrdId; branch: string }) => Promise<boolean>;
 };
 
 /** `GET /repos/{owner}/{repo}/pulls`: a product PRD's target pull requests, read by their body's `Part of <id>` (PRD omni-loop-21 s9b). */
 const TargetPullsSchema = z.array(z.looseObject({ number: z.number().int().positive(), body: z.string().nullish() }));
+
+/** `GET /search/issues`: the merged pull requests a search finds, read by number (bug #3371). */
+const FoundSchema = z.looseObject({ items: z.array(z.looseObject({ number: z.number().int().positive() })) });
+
+/** `GET /repos/{owner}/{repo}/pulls…`: a pull request as omni-loop/kit/lib/ultra/landed.ts reads it, merged or not. */
+const MergedSchema = z.looseObject({
+  number: z.number().int().positive(),
+  body: z.string().nullish(),
+  merged_at: z.string().nullish(),
+  merge_commit_sha: z.string().nullish(),
+  base: z.looseObject({ ref: z.string() }),
+  head: z.looseObject({ ref: z.string() }),
+});
+type Listed = z.infer<typeof MergedSchema>;
+
+/** A pull request as a merged one, or null while it is not merged. */
+const mergedOf = (one: Listed): MergedPull | null =>
+  one.merged_at == null || one.merge_commit_sha == null ? null : { number: one.number, base: one.base.ref, head: one.head.ref, merge: one.merge_commit_sha };
 
 /** Whether a pull request's body says it is part of product PRD `prd`: a `Part of <id>` line. */
 const partOf = (body: string | null | undefined, prd: ProductPrdId): boolean => (body ?? '').split('\n').some((line) => line.trim() === `Part of ${prd}`);
@@ -204,6 +229,37 @@ async function mergeAll(joins: MissionJoins, installation: number, judged: reado
   return { joined: true, pulls };
 }
 
+/** What omni-loop/kit/lib/ultra/landed.ts reads of `owner/repo` through GitHub's REST API, against `branch` (bug #3371). */
+function landedReads(octokit: GitHubClient, { owner, repo, branch }: { owner: string; repo: string; branch: string }): LandedReads {
+  const pull = async (number: number): Promise<MergedPull | null> =>
+    mergedOf(MergedSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', { owner, repo, pull_number: number })).data));
+  return {
+    async partOf(prd) {
+      const q = `repo:${owner}/${repo} is:pr is:merged in:body "Part of ${prd}"`;
+      const found = FoundSchema.parse((await octokit.request('GET /search/issues', { q, per_page: PER_PAGE })).data).items;
+      const pulls = await Promise.all(found.map(async (one) => {
+        const read = MergedSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', { owner, repo, pull_number: one.number })).data);
+        return saysPartOf(read.body, prd) ? mergedOf(read) : null;
+      }));
+      return pulls.filter((one) => one !== null);
+    },
+    async from(head) {
+      const listed = z.array(MergedSchema).parse((await octokit.request('GET /repos/{owner}/{repo}/pulls', { owner, repo, head: `${owner}:${head}`, state: 'closed', per_page: PER_PAGE })).data);
+      const merged = await Promise.all(listed.filter((one) => one.merged_at != null).map((one) => pull(one.number)));
+      return merged.filter((one) => one !== null);
+    },
+    async within(sha) {
+      try {
+        const compared = z.looseObject({ status: z.string() }).parse((await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', { owner, repo, basehead: `${sha}...${branch}`, per_page: 1 })).data);
+        return compared.status === 'ahead' || compared.status === 'identical';
+      } catch (error) {
+        if (statusOf(error) === 404) return false;
+        throw error;
+      }
+    },
+  };
+}
+
 /** The joins of a mission, through `octokitFor(installation)`. */
 export function missionJoins({ octokitFor }: { octokitFor: (installation: number) => Promise<GitHubClient> | GitHubClient }): MissionJoins {
   return {
@@ -271,6 +327,15 @@ export function missionJoins({ octokitFor }: { octokitFor: (installation: number
         for (const one of pulls) if (partOf(one.body, prd)) found.push({ repo: slug, pr: PrNumberSchema.parse(one.number) });
       }
       return found;
+    },
+
+    async landed({ installation, repos, prd, branch }) {
+      const octokit = await octokitFor(installation);
+      for (const slug of repos) {
+        const [owner = '', repo = ''] = slug.split('/');
+        if ((await landedIn(prd, landedReads(octokit, { owner, repo, branch }))).landed) return true;
+      }
+      return false;
     },
   };
 }
