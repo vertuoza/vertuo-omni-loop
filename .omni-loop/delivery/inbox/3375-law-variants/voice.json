@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-27",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "A read-only column and a matrix built from the shared components is little I would worry about. I want the empty and unreadable states drawn, not guessed.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "No table and no migration, just a file the pack already carries, is the least gimmicky way to do it. I will believe the check when it names the path it refuses.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "enthusiastic", "score": 5, "reaction": "Seeing on the law who gets a feature differently lets me write the next PRD for every group at once. The product-wide matrix is what I would open first.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 2, "reaction": "A JSON file beside markdown knowledge is one more format for every team to learn. A generator rewriting it daily means diffs nobody reads.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Knowing which customers are on the new screen before I promise a quick win saves me a bad answer. The stale mark tells me when to ask again.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "I'm trying to keep the teams working the same way, and every other piece of our knowledge is a markdown file we review by eye. A JSON file with its own schema beside them is one more format each team has to learn, and one more file a generator rewrites without anyone reading the diff.",
+        "citations": ["persona:Lead Engineer"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✗ (accepted: omni kb law-variants --base)"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-27",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Every state of the section is written as a sentence and each has an acceptance criterion. Demo mode means I can see it without a database.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "The schema refuses unknown keys and every refusal names its path. The clock is passed in, so the stale tests will not flake.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "enthusiastic", "score": 5, "reaction": "The law, the Legal entry, the CLI and the MCP all say who it differs for, so agents read it too. That is everything I asked for in one PRD.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "The --base diff turns a generated rewrite into a short list of changes I can review. One parser shared by every reader keeps the teams on one shape.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "The not checked badge never passes as checked, so I know what to verify before telling a customer. Vertuoza's move stays outside, which keeps this one quick.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓"
+    }
+  ]
+}

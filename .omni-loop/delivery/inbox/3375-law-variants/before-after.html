@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="3">
+<title>PRD 3375: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs label small { font-weight: 600; color: var(--muted); }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"],
+#tab-pixel-perfect:checked ~ .tabs label[for="tab-pixel-perfect"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"],
+#tab-pixel-perfect:focus-visible ~ .tabs label[for="tab-pixel-perfect"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"],
+#tab-pixel-perfect:checked ~ [data-tab="pixel-perfect"] { display: block; }
+[data-tab="pixel-perfect"] { max-width: none; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.index[hidden] { display: none; }
+.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }
+.ref[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }
+.shot { margin: 0; min-width: 0; }
+.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }
+.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }
+.when.after { background: var(--add-bg); color: var(--add-fg); }
+.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+.zoom[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.fit.full { overflow: auto; }
+.fit > [data-screen] { transform-origin: 0 0; }
+.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>PRD 3375: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<input type="radio" name="tab" id="tab-pixel-perfect" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional</label><label for="tab-technical">Technical</label><label for="tab-pixel-perfect">Pixel perfect<small data-count></small></label></div>
+<section data-tab="functional">
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">Today</div><p>A business law on the Omni page shows its statement, its Why, its domains and its owner. Nothing says that a rollout group or new tenants get the feature differently, nor whether anyone checked.</p><p>A Legal entry's page shows the entry and who owns it, nothing about rollouts that touch it.</p></div><div><div class="label">After</div><p>Each law's row has a <b>Differs for</b> column: who gets it differently (Internal, New tenants), the feature, the flag behind it, and how and when it was checked, marked stale after 30 days (or the file's own limit).</p><p>A Legal entry a variant names shows the same <b>Differs for</b> block.</p><p>A new <b>Law variants</b> section lines every condition up against every audience of the product, with what happens when it is on and off.</p></div></div>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">Today</div><p><code>omni kb business-laws</code> and an agent's <code>get_knowledge</code> print a law's statement and Why. Vertuoza keeps who gets what in a file of its own, outside the knowledge folder, that no reader sees.</p></div><div><div class="label">After</div><p>A product writes <code>product/law-variants.json</code> in its law home's knowledge folder. <code>omni check knowledge</code> refuses what is wrong in it, by path. <code>omni kb business-laws</code> and <code>get_knowledge</code> print a <b>Differs for</b> line under each law; <code>search_knowledge</code> finds a law by its flag.</p><p><code>omni kb law-variants</code> prints the file in words, and <code>--base &lt;ref&gt;</code> prints only what changed (<code>BETA: off → on</code>), so a generated file is reviewed as a list of changes.</p></div></div>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="gap">
+<h4>Flow</h4>
+<p>To settle — diagram not rendered: <code>omni before-after render</code> hung past its limit here.</p><ol><li>The law home holds <code>knowledge/product/law-variants.json</code>; <code>omni check knowledge</code> grades it.</li><li>A merge to its default branch: the Omni App keeps it in the knowledge pack (Supabase, knowledge_packs and their files).</li><li>The Omni page reads the pack as the member (row-level security): Business laws, a Legal entry, Law variants.</li><li>The knowledge MCP reads the law home pack: get_knowledge, search_knowledge.</li><li>The terminal reads this checkout, or the pack through omni kb pack get: omni kb business-laws, omni kb law-variants.</li></ol><details><summary>Diagram source</summary><pre><code>flowchart LR
+  A[law home repository\nknowledge/product/law-variants.json] -- omni check knowledge --&gt; A
+  A -- merge to default branch --&gt; B[Omni App\nknowledge pack]
+  B --&gt; C[(Supabase\nknowledge_packs + files)]
+  C -- read as the member, RLS --&gt; D[Omni page\nBusiness laws · Legal entry · Law variants]
+  C -- law home pack --&gt; E[knowledge MCP\nget_knowledge · search_knowledge]
+  A -- this checkout or omni kb pack get --&gt; F[omni kb business-laws\nomni kb law-variants]
+</code></pre></details>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ol><li>One merge ships both: the kit (<code>kit/dist/omni.mjs</code>, the plugin) and the galaxy app on its next production deploy. No migration, no order between them: a page without the file, or a kit without the command, simply shows no variant.</li><li>Then each product adds its file (Vertuoza: nimbus-automation-plan, tracked on team-platformengineering#1092).</li></ol>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+N/A — no table, no migration: the variants ride the knowledge pack already stored.
+</div>
+<div data-section="api" data-state="na">
+<h4>API / schema</h4>
+N/A — no route or contract changes: the page reads the pack it already reads.
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare"><div><div class="label">Today</div><p><code>loadBusinessLaws</code> returns the laws of the law home's newest pack.</p></div><div><div class="label">After</div><p>It returns the variants of the same pack too, parsed by the kit module, one read per request; a file that does not read is a note, never a failed read.</p></div></div>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+N/A — no table: the file lives in the repository and the pack.
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr><tr><td><code>product/law-variants.json</code> v1</td><td><span class="badge added">added</span></td><td>—</td><td>a knowledge file: <code>version</code>, <code>staleAfterDays</code>, <code>audiences[]</code>, <code>variants[]</code></td><td>kit</td></tr><tr><td><code>omni kb law-variants [--base &lt;ref&gt;]</code></td><td><span class="badge added">added</span></td><td>—</td><td>the file in words; only the changes since a ref</td><td>kit</td></tr><tr><td><code>omni kb business-laws</code> output</td><td>changed</td><td>id, statement, Why</td><td>+ one <code>Differs for:</code> line per variant</td><td>kit</td></tr><tr><td><code>omni check knowledge</code></td><td>changed</td><td>laws, registers, Legal ids</td><td>+ the variants file's refusals</td><td>kit</td></tr><tr><td><code>get_knowledge</code> law and Legal body</td><td>changed</td><td>statement, Why, domains, owner</td><td>+ a Differs for paragraph</td><td>kit</td></tr></table><p>No change is breaking: each adds to an output or adds an element (the rule this page's skill states; the repository has no stricter conventions page).</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare"><div><div class="label">Today</div><p><code>search_knowledge</code> matches a law by its own words only.</p></div><div><div class="label">After</div><p>A law's searchable text also holds each variant's condition key and feature, so <code>search_knowledge hotjar</code> returns the law or Legal entry it touches.</p></div></div>
+</div>
+</div>
+</section>
+<section data-tab="pixel-perfect">
+<nav class="index" aria-label="References" data-index hidden></nav>
+<!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element
+     carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),
+     data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,
+     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,
+     and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: product-business-laws · product-knowledge-item · product-law-variants · app-shell</p><p>Example data, fictional. Built from the app pages' reading tokens (the <code>--ask-*</code> set the library mockups use) and the shared components: a Badge per audience, Code for the condition, a table as Business laws draws it, a Notice for a file that does not read.</p><h3>1 · Business laws: the Differs for column</h3><h5>1.A · A law one variant names, and one none names</h5><div data-screen="product-business-laws" data-ref="1.A" data-when="today" data-viewport="1280"><template><div class="scr"><nav class="sub"><span>Legal 10</span><span>Glossary</span><span>Domains 6</span><b>Business laws 12</b><span>Pitch</span></nav><h2>Business laws</h2><p class="mut">Read from <a>acme/plan</a>, at its newest merged commit.</p><table class="t"><tr><th>Law</th><th>Statement</th><th>Why</th><th>Domains</th><th>Owner</th></tr><tr><th class="id">BL-PLANNING-1</th><td data-content>An Absence is recorded once, from one place.</td><td data-content>Two places drift apart and pay goes wrong.</td><td><a>planning</a></td><td>@ana</td></tr><tr><th class="id">BL-QUOTES-1</th><td data-content>A quote is sent only when its total is above zero.</td><td data-content>An empty quote costs trust.</td><td><a>quotes</a></td><td>@ana</td></tr></table><p><a class="btn" data-primary>Open the laws on GitHub</a></p></div></template></div><div data-screen="product-business-laws" data-ref="1.A" data-when="after" data-viewport="1280"><template><div class="scr"><nav class="sub"><span>Legal 10</span><span>Glossary</span><span>Domains 6</span><b>Business laws 12</b><span>Law variants 10</span><span>Pitch</span></nav><h2>Business laws</h2><p class="mut">Read from <a>acme/plan</a> · newest merge</p><table class="t"><tr><th>Law</th><th>Statement</th><th>Why</th><th>Domains</th><th>Owner</th><th>Differs for</th></tr><tr><th class="id">BL-PLANNING-1</th><td data-content>An Absence is recorded once, from one place.</td><td data-content>Two places drift apart and pay goes wrong.</td><td><a>planning</a></td><td>@ana</td><td class="dc"><div class="vl"><span class="b">Internal</span><span class="b">New tenants</span> <span data-content>Where Absences are recorded</span> <code>remove-absences-sidebar-rh</code> <span class="chk ok">live · 12d</span></div></td></tr><tr><th class="id">BL-QUOTES-1</th><td data-content>A quote is sent only when its total is above zero.</td><td data-content>An empty quote costs trust.</td><td><a>quotes</a></td><td>@ana</td><td class="dc">—</td></tr></table><p><a class="btn" data-primary>Open the laws on GitHub</a></p></div></template></div><p>Word pass on 1.A today: "Read from acme/plan, at its newest merged commit." stands at rest at 8 words; the after shortens it.</p><h5>1.B · A stale check, and an unchecked one</h5><div data-screen="product-business-laws" data-ref="1.B" data-when="after" data-viewport="1280"><template><div class="scr"><nav class="sub"><span>Legal 10</span><span>Glossary</span><span>Domains 6</span><b>Business laws 12</b><span>Law variants 10</span><span>Pitch</span></nav><h2>Business laws</h2><p class="mut">Read from <a>acme/plan</a> · newest merge</p><table class="t"><tr><th>Law</th><th>Statement</th><th>Why</th><th>Domains</th><th>Owner</th><th>Differs for</th></tr><tr><th class="id">BL-PLANNING-1</th><td data-content>An Absence is recorded once, from one place.</td><td data-content>Two places drift apart and pay goes wrong.</td><td><a>planning</a></td><td>@ana</td><td class="dc"><div class="vl"><span class="b">Internal</span><span class="b">New tenants</span> <span data-content>Where Absences are recorded</span> <code>remove-absences-sidebar-rh</code> <span class="chk stale">live · 41d · stale</span></div><div class="vl"><span class="b">Beta</span> <span data-content>Absences from the phone</span> <code>mobile-absences</code> <span class="chk none">not checked</span></div></td></tr></table><p><a class="btn" data-primary>Open the laws on GitHub</a></p></div></template></div><h3>2 · A Legal entry's page</h3><h5>2.A · A Legal entry a variant names</h5><div data-screen="product-knowledge-item" data-ref="2.A" data-when="today" data-viewport="1280"><template><div class="scr"><nav class="sub"><b>Legal 10</b><span>Glossary</span><span>Domains 6</span><span>Business laws 12</span><span>Pitch</span></nav><p class="mut">← Legal</p><div class="card"><div class="bar"><h2 class="id">L-COOK-1</h2><span><a class="btn" data-primary>Edit</a> <a class="btn2">Retire</a></span></div><dl><dt>Statement</dt><dd data-content>A cookie that is not needed is set only after consent.</dd><dt>Source</dt><dd>ePrivacy Directive Art. 5(3)</dd><dt>Owner</dt><dd>@ana</dd></dl></div></div></template></div><div data-screen="product-knowledge-item" data-ref="2.A" data-when="after" data-viewport="1280"><template><div class="scr"><nav class="sub"><b>Legal 10</b><span>Glossary</span><span>Domains 6</span><span>Business laws 12</span><span>Law variants 10</span><span>Pitch</span></nav><p class="mut">← Legal</p><div class="card"><div class="bar"><h2 class="id">L-COOK-1</h2><span><a class="btn" data-primary>Edit</a> <a class="btn2">Retire</a></span></div><dl><dt>Statement</dt><dd data-content>A cookie that is not needed is set only after consent.</dd><dt>Source</dt><dd>ePrivacy Directive Art. 5(3)</dd><dt>Owner</dt><dd>@ana</dd></dl><section class="df"><h3>Differs for</h3><div class="vl"><span class="b">Beta</span> <span data-content>Session recording</span> <code>hotjar</code> <span class="chk ok">live · 12d</span></div></section></div></div></template></div><h3>3 · Law variants: the product-wide view (new)</h3><h5>3.A · The matrix, a row open</h5><div data-screen="product-law-variants" data-ref="3.A" data-when="after" data-viewport="1280"><template><div class="scr"><nav class="sub"><span>Legal 10</span><span>Glossary</span><span>Domains 6</span><span>Business laws 12</span><b>Law variants 10</b><span>Pitch</span></nav><h2>Law variants</h2><p class="mut">Read from <a>acme/plan</a> · newest merge</p><table class="t m"><tr><th>Variant</th><th>Internal</th><th>Beta</th><th>General</th><th>Final</th><th>New tenants</th><th>Laws</th><th>Legal</th><th>Checked</th></tr><tr><th><b>Where Absences are recorded</b><br><small class="mut">flag remove-absences-sidebar-rh</small></th><td class="c on">on</td><td class="c off">off</td><td class="c off">off</td><td class="c off">off</td><td class="c on">on</td><td><a>BL-PLANNING-1</a></td><td><a>—</a></td><td><span class="chk ok">live · 12d</span></td></tr><tr class="open"><td colspan="9"><details open><summary>On and off</summary><p><b>On</b> <span data-content>HR shows Time Entries only.</span></p><p><b>Off</b> <span data-content>HR also has an Absences planning (V1).</span></p><p class="mut">Live · 2026-11-27 · v3.15.9</p></details></td></tr><tr><th><b>Session recording</b><br><small class="mut">flag hotjar</small></th><td class="c off">off</td><td class="c on">on</td><td class="c off">off</td><td class="c off">off</td><td class="c">—</td><td><a>—</a></td><td><a>L-COOK-1</a></td><td><span class="chk ok">live · 12d</span></td></tr><tr><th><b>Records change one at a time</b><br><small class="mut">flag lock-ressource-backend</small></th><td class="c off">off</td><td class="c on">on</td><td class="c off">off</td><td class="c off">off</td><td class="c">—</td><td><a>—</a></td><td><a>—</a></td><td><span class="chk ok">code · 12d</span></td></tr><tr><th><b>Ledger account on products</b><br><small class="mut">flag library-product-ledger-account</small></th><td class="c on">on</td><td class="c on">on</td><td class="c on">on</td><td class="c off">off</td><td class="c">—</td><td><a>—</a></td><td><a>—</a></td><td><span class="chk none">not checked</span></td></tr></table><p><a class="btn" data-primary>Open the file on GitHub</a></p></div></template></div><h5>3.B · No file yet</h5><div data-screen="product-law-variants" data-ref="3.B" data-when="after" data-viewport="1280"><template><div class="scr"><nav class="sub"><span>Legal 10</span><span>Glossary</span><span>Domains 6</span><span>Business laws 12</span><b>Law variants 10</b><span>Pitch</span></nav><h2>Law variants</h2><div class="empty"><p>No law variant yet.</p><p>Add <code>product/law-variants.json</code> in acme/plan.</p></div><p><a class="btn" data-primary>Open the laws on GitHub</a></p></div></template></div><h5>3.C · A file that does not read</h5><div data-screen="product-law-variants" data-ref="3.C" data-when="after" data-viewport="1280"><template><div class="scr"><nav class="sub"><span>Legal 10</span><span>Glossary</span><span>Domains 6</span><span>Business laws 12</span><b>Law variants 10</b><span>Pitch</span></nav><h2>Law variants</h2><div class="notice"><p><code>law-variants.json</code> does not read at 4f2a91c.</p><p data-content>variants[3].audiences.BETTA — not a declared audience</p></div><p><a class="btn" data-primary>Open the file on GitHub</a></p></div></template></div>
+</div>
+</section>
+<template id="screen-css"><style>
+/* The screens' one stylesheet: the app pages' reading tokens (--ask-*, as the library mockups use them) and the table, badge and notice rules. */
+:host{--g:#07061c;--s:#120f3a;--l:#1a2170;--ls:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--p:#ffd84a;--op:#07061c;--c:#5ee7ff;--gr:#4ee08a;--w:#ffb547;--r:#ff3b5c}
+.scr{background:var(--g);color:var(--i);font:14px/1.5 "Atkinson Hyperlegible Next",system-ui,sans-serif;padding:28px;min-height:440px;box-sizing:border-box}
+.sub{display:flex;gap:14px;font-size:13px;color:var(--m);border-bottom:1px solid var(--ls);padding-bottom:8px;margin-bottom:14px}
+.sub b{color:var(--i)}
+h2{margin:0 0 4px;font-size:22px}h3{margin:14px 0 6px;font-size:15px;color:var(--c)}
+.mut{color:var(--m);margin:0 0 10px}a{color:var(--c)}
+.t{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 14px}
+.t th,.t td{border-bottom:1px solid var(--l);padding:7px 9px;text-align:left;vertical-align:top}
+.t tr:first-child th{color:var(--m);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.id{font:600 12px ui-monospace,Menlo,monospace;color:var(--p)}
+code{font:12px ui-monospace,Menlo,monospace;color:var(--c)}
+.b{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--l);color:var(--i);margin-right:4px}
+.vl{margin:0 0 6px}
+.chk{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;margin-left:4px}
+.chk.ok{background:#12301b;color:var(--gr)}.chk.stale{background:#3a2c0a;color:var(--w)}.chk.none{background:var(--s);color:var(--m);border:1px dashed var(--ls)}
+.btn{display:inline-block;padding:6px 12px;border-radius:8px;background:var(--p);color:var(--op);font-weight:700;font-size:13px;text-decoration:none}
+.btn2{display:inline-block;padding:6px 12px;border-radius:8px;border:1.5px solid var(--ls);color:var(--i);font-weight:700;font-size:13px}
+.card{background:var(--s);border:1px solid var(--l);border-radius:8px;padding:18px;max-width:760px}
+.bar{display:flex;justify-content:space-between;align-items:center}
+dl{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;margin:10px 0}dt{color:var(--m)}dd{margin:0}
+.df{border-top:1px solid var(--ls);margin-top:12px;padding-top:4px}
+.m .c{text-align:center;font-weight:700}.m .c.on{color:var(--gr)}.m .c.off{color:var(--m)}
+.m tr.open td{background:var(--s)}details p{margin:4px 0}summary{color:var(--m);cursor:pointer}
+.empty{border:1px dashed var(--ls);border-radius:8px;padding:28px;color:var(--m);margin:10px 0 14px}
+.notice{border-left:3px solid var(--w);background:#3a2c0a;color:#ffe2a8;padding:12px 14px;border-radius:6px;margin:10px 0 14px}
+
+</style></template>
+<script>
+(function () {
+  var BASE = ':host { all: initial; display: block; }';
+  var tab = document.querySelector('[data-tab="pixel-perfect"]');
+  var sheet = document.getElementById('screen-css');
+  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];
+  var fits = [];
+  function make(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text) node.textContent = text;
+    return node;
+  }
+  function widthOf(screen) {
+    var width = Number(screen.getAttribute('data-viewport'));
+    return width >= 320 && width <= 2560 ? Math.round(width) : 0;
+  }
+  function isolate(screen) {
+    if (!screen.attachShadow || screen.shadowRoot) return;
+    var body = null;
+    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];
+    var root = screen.attachShadow({ mode: 'open' });
+    root.appendChild(make('style', '', BASE));
+    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));
+    if (body) root.appendChild(body.content.cloneNode(true));
+    else while (screen.firstChild) root.appendChild(screen.firstChild);
+    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';
+  }
+  function size(fit) {
+    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;
+    if (!width) return;
+    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }
+    var k = Math.min(1, fit.clientWidth / width);
+    if (!k) return;
+    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';
+    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';
+  }
+  function zoom(figure) {
+    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');
+    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });
+    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';
+    size(fit);
+  }
+  function frame(screen, ref) {
+    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');
+    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);
+    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');
+    button.type = 'button'; full.type = 'button';
+    button.title = 'Open at 100 %';
+    [button, full].forEach(function (each) {
+      each.setAttribute('data-zoom', '');
+      each.setAttribute('aria-pressed', 'false');
+      each.addEventListener('click', function () { zoom(figure); });
+    });
+    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];
+    parts.forEach(function (part, i) {
+      if (i > 0) caption.appendChild(document.createTextNode(' · '));
+      caption.appendChild(part);
+    });
+    caption.appendChild(full);
+    if (width) fit.style.maxWidth = width + 2 + 'px';
+    fit.appendChild(screen);
+    figure.appendChild(caption);
+    figure.appendChild(fit);
+    fits.push(fit);
+    return figure;
+  }
+  function absent(ref) {
+    var figure = make('figure', 'shot none'), caption = make('figcaption');
+    caption.appendChild(make('span', 'ref', ref));
+    caption.appendChild(document.createTextNode(' · '));
+    caption.appendChild(make('span', 'when today', 'Today'));
+    figure.appendChild(caption);
+    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));
+    return figure;
+  }
+  var groups = [], byRef = {};
+  screens.forEach(function (screen) {
+    isolate(screen);
+    var ref = screen.getAttribute('data-ref') || '';
+    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }
+    byRef[ref].screens.push(screen);
+  });
+  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };
+  groups.forEach(function (group) {
+    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';
+    if (id && !document.getElementById(id)) pair.id = id;
+    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));
+    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);
+    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });
+    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));
+    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });
+  });
+  var index = tab && tab.querySelector('[data-index]'), numbers = [];
+  groups.forEach(function (group) {
+    if (!group.ref || !index) return;
+    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }
+    var link = make('a', 'ref', group.ref);
+    link.href = '#s-' + group.ref.replace('.', '-');
+    link.title = group.screens[0].getAttribute('data-screen') || '';
+    index.appendChild(link);
+    var number = group.ref.split('.')[0];
+    if (numbers.indexOf(number) === -1) numbers.push(number);
+  });
+  var count = document.querySelector('[data-count]');
+  if (count && numbers.length > 0) count.textContent = ' · ' + numbers.length;
+  if (typeof ResizeObserver === 'function') {
+    var watch = new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });
+    });
+    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });
+  }
+  function open() {
+    var hash = location.hash;
+    if (hash === '#technical') document.getElementById('tab-technical').checked = true;
+    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {
+      document.getElementById('tab-pixel-perfect').checked = true;
+      fits.forEach(size);
+      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));
+      if (target) target.scrollIntoView();
+    }
+  }
+  fits.forEach(size);
+  window.addEventListener('hashchange', open);
+  open();
+})();
+</script>
+</body>
+</html>

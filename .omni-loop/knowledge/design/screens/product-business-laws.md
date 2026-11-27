@@ -18,6 +18,7 @@ A product's business laws, read from its law home, with why each one exists. Not
 - **The sub-menu:** Business laws with its count, after Domains.
 - **Where they live:** the law home and the laws' owner.
 - **The list:** each law's id and statement, its Why and its domains, filtered through `?domain=<key>`.
+- **Differs for:** a column after Domains; a line per law variant naming the law (the audiences it is on for as badges, the feature, the condition key, the check badge), linking to its row in Law variants; `—` when none names it.
 - **The action:** a link to the laws' files on GitHub.
 
 ## States
@@ -28,7 +29,7 @@ A product's business laws, read from its law home, with why each one exists. Not
 
 ## Words
 
-Business laws · Law · Why · Domains · All · Open the laws on GitHub.
+Business laws · Law · Why · Domains · Differs for · All · not checked · stale · Open the laws on GitHub.
 
 ## Refusals
 
@@ -41,3 +42,4 @@ Business laws · Law · Why · Domains · All · Open the laws on GitHub.
 ## Source
 
 - /omni:brainstorm, PRD 2632: .omni-loop/delivery/shipped/2632-business-laws/before-after.html
+- /omni:brainstorm, PRD 3375: .omni-loop/delivery/inbox/3375-law-variants/before-after.html
